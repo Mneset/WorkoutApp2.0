@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./workoutLogger
+    env_file:
+      - ./workoutLogger/.env
+    networks:
+      - app-network
+
+  frontend-build:
+    build:
+      context: ./workoutLoggerFrontend
+      target: build
+    networks:
+      - app-network
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend-build
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
