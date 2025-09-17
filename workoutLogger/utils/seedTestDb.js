@@ -49,8 +49,8 @@ const seedTestDb = async (db) => {
 
         // Seed users
         await db.User.bulkCreate([
-            { id: 1, username: 'testuser', email: 'test@example.com', role_id: 1 },
-            { id: 2, username: 'admin', email: 'admin@example.com', role_id: 2 }
+            { id: 1, username: 'testuser', email: 'test@example.com', roleId: 1 }, // Changed role_id to roleId
+            { id: 2, username: 'admin', email: 'admin@example.com', roleId: 2 }
         ]);
 
         // Seed workout plans
@@ -59,44 +59,44 @@ const seedTestDb = async (db) => {
                 id: 1, 
                 name: 'Test Workout Plan', 
                 description: 'A basic test workout plan', 
-                duration_weeks: 4 
+                durationWeeks: 4 
             }
         ]);
 
         // Seed session logs
         await db.SessionLog.bulkCreate([
-            { id: 1, user_id: 1, workout_plan_id: 1 },
-            { id: 2, user_id: 1, workout_plan_id: 1 }
+            { id: 1, userId: 1, workoutPlanId: 1 }, // Changed user_id to userId, workout_plan_id to workoutPlanId
+            { id: 2, userId: 1, workoutPlanId: 1 }
         ]);
 
         // Seed exercise logs
         await db.ExerciseLog.bulkCreate([
-            { id: 1, exercise_id: 1, sets_id: 1, session_log_id: 1 },
-            { id: 2, exercise_id: 2, sets_id: 1, session_log_id: 1 },
-            { id: 3, exercise_id: 3, sets_id: 1, session_log_id: 2 }
+            { id: 1, exerciseId: 1, setId: 1, reps: 10, weight: 135, notes: 'Good form', sessionLogId: 1 },
+            { id: 2, exerciseId: 2, setId: 1, reps: 15, weight: 0, notes: 'Push-ups felt easy', sessionLogId: 1 },
+            { id: 3, exerciseId: 3, setId: 1, reps: 8, weight: 0, notes: 'Need to improve', sessionLogId: 2 }
         ]);
 
         // Seed junction tables (many-to-many relationships)
         await db.ExerciseTargetMuscle.bulkCreate([
-            { exercise_id: 1, target_muscle_id: 1 }, // Bench Press - Pectoralis Major
-            { exercise_id: 1, target_muscle_id: 2 }, // Bench Press - Triceps
-            { exercise_id: 2, target_muscle_id: 1 }, // Push-Up - Pectoralis Major
-            { exercise_id: 3, target_muscle_id: 3 }, // Pull-Up - Latissimus Dorsi
-            { exercise_id: 4, target_muscle_id: 4 }  // Squat - Quadriceps
+            { exerciseId: 1, targetMuscleId: 1 }, // Changed to camelCase
+            { exerciseId: 1, targetMuscleId: 2 },
+            { exerciseId: 2, targetMuscleId: 1 },
+            { exerciseId: 3, targetMuscleId: 3 },
+            { exerciseId: 4, targetMuscleId: 4 }
         ]);
 
         await db.ExerciseCategory.bulkCreate([
-            { exercise_id: 1, category_id: 1 }, // Bench Press - Strength
-            { exercise_id: 2, category_id: 2 }, // Push-Up - Bodyweight
-            { exercise_id: 3, category_id: 2 }, // Pull-Up - Bodyweight
-            { exercise_id: 4, category_id: 1 }  // Squat - Strength
+            { exerciseId: 1, categoryId: 1 }, // Changed to camelCase
+            { exerciseId: 2, categoryId: 2 },
+            { exerciseId: 3, categoryId: 2 },
+            { exerciseId: 4, categoryId: 1 }
         ]);
 
         await db.ExerciseEquipment.bulkCreate([
-            { exercise_id: 1, equipment_id: 1 }, // Bench Press - Barbell
-            { exercise_id: 2, equipment_id: 3 }, // Push-Up - Bodyweight
-            { exercise_id: 3, equipment_id: 4 }, // Pull-Up - Pull-Up Bar
-            { exercise_id: 4, equipment_id: 1 }  // Squat - Barbell
+            { exerciseId: 1, equipmentId: 1 }, // Changed to camelCase
+            { exerciseId: 2, equipmentId: 3 },
+            { exerciseId: 3, equipmentId: 4 },
+            { exerciseId: 4, equipmentId: 1 }
         ]);
 
         console.log('Test data seeded successfully');

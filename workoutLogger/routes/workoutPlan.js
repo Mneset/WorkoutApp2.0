@@ -6,17 +6,19 @@ const WorkoutPlanService = require('../services/workoutPlanService');
 const workoutPlanService = new WorkoutPlanService(db);
 const checkForUser = require('../utils/userCreator');
 
-router.use(checkForUser);
+if (process.env.NODE_ENV !== 'test') {
+    router.use(checkForUser);
+}
 
 router.get('/', async (req, res) => {
 
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { name, description, durationWeeks } = req.body;
     try {
         if(!name || !description || !durationWeeks) {
-            next(createError(400, 'Missing required fields: name, description, or durationWeeks'))
+            return next(createError(400, 'Missing required fields: name, description, or durationWeeks'))
         }
 
         await workoutPlanService.createWorkoutPlan(name, description, durationWeeks);
