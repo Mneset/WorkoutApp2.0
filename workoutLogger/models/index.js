@@ -5,7 +5,46 @@ require('dotenv').config()
 
 // Database connection
 
-const sequelize = new Sequelize ({
+const config = {
+    development: {
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        dialect: process.env.DB_DIALECT,
+        define: {
+            underscored: process.env.DB_UNDERSCORED === 'true',
+            timestamps: process.env.DB_TIMESTAMPS === 'true'
+        }
+    },
+    test: {
+        dialect: 'sqlite',
+        storage: './tests/test.db',
+        logging: false,
+        define: {
+            underscored: true,
+            timestamps: true
+        }
+    },
+    production: {
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        dialect: process.env.DB_DIALECT,
+        define: {
+            underscored: process.env.DB_UNDERSCORED === 'true',
+            timestamps: process.env.DB_TIMESTAMPS === 'true'
+        }
+    }
+};
+
+const env = process.env.NODE_ENV || 'development';
+const dbConfig = config[env];
+
+const sequelize = new Sequelize(dbConfig);
+
+/* const sequelize = new Sequelize ({
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     host: process.env.DB_HOST,
@@ -15,7 +54,7 @@ const sequelize = new Sequelize ({
         underscored: process.env.DB_UNDERSCORED === 'true',
         timestamps: process.env.DB_TIMESTAMPS === 'true'
     }
-});
+}); */
 
 //Database wrapper
 

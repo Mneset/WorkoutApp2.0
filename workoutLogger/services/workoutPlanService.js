@@ -5,38 +5,51 @@ class WorkoutPlanService {
         this.db = db;
     }
 
-    async createWorkoutPlan() {
+    async createWorkoutPlan(name, description, durationWeeks) {
+        await this.db.WorkoutPlan.create({
+            name: name,
+            description: description,
+            durationWeeks: durationWeeks
+        });
+    }
+
+    async deleteWorkoutPlan() {
         
     }
 
-    async startWorkoutPlan(userId, workoutPlanId) {
+    async updateWorkoutPlan() {
+       
+    }
+
+    async getWorkoutPlanById() {
+       
+    }
+
+    async startWorkoutPlan() {
         
     }
 
-    async getTodaysWorkout(userId) {
+    async getCurrentPlanStatus() {
 
     }
 
-    async getExpectedSession(userId, dayOffset) {
+    async getTodaysWorkout() {
+
+    }
+
+    async getExpectedSession() {
     
     }
 
-    async startSessionFromTemplate(userId, dayOffset) {
+    async startSessionFromTemplate() {
 
     }
 
-    async advanceUserweek(userId) {
+    async advanceUserweek() {
  
     }
-
-    async getCurrentPlanStatus(userId) {
-
-    }
-
-    async calculateProgressedValue() {
-
-    }
-
 }
+
+module.exports = WorkoutPlanService;
 
 

@@ -1,11 +1,7 @@
-// Getting the required modules
-
 const createError = require('http-errors')
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const port = process.env.PORT || 3000;
-const { initializeDb } = require('./config/database');
 const { auth } = require('express-oauth2-jwt-bearer')
 const { errorHandler } = require('./utils/errorHandler');
 
@@ -16,18 +12,15 @@ const jwtCheck = auth ({
 });
 
 // Defining the routes
-
 const indexRouter = require('./routes/index')
 const sessionRouter = require('./routes/sessionLog');
 const setsRouter = require('./routes/sets');
 const exercisesRouter = require('./routes/exerciseLog');
 const workoutPlanRouter = require('./routes/workoutPlan');
-//const sessionTemplate = require('./routes/sessionTemplate');
-//const exerciseTemplate = require('./routes/exerciseTemplate');
+
 const apiPreFix = '/api/v1';
 
 // Middleware
-
 app.use(cors({
     origin: 'http://localhost:3001',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -36,32 +29,19 @@ app.use(cors({
 
 app.use(express.json());
 
-// Using the routes
+// Using the routes WITH JWT middleware
 app.use(jwtCheck);
 app.use(apiPreFix, indexRouter);
 app.use(`${apiPreFix}/session`, sessionRouter);
 app.use(`${apiPreFix}/sets`, setsRouter);
 app.use(`${apiPreFix}/exercise-log`, exercisesRouter);
 app.use(`${apiPreFix}/workout-plan`, workoutPlanRouter);
-//app.use(`${apiPreFix}/session-template`, sessionTemplate);
-//app.use(`${apiPreFix}/exercise-template`, exerciseTemplate);
 
-// Initialize the database
-
-initializeDb().then(() => {
-    console.log('Database initialized');    
-}).catch(error => {
-    console.error('Failed to initialize database:', error);
-})
-
-// Starting the server
-
-app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running on port ${port}`);  
-});
-
+// Error handling
 app.use(function(req, res, next) {
   next(createError(404));
 });
 
 app.use(errorHandler);
+
+module.exports = app;

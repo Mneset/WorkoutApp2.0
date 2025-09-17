@@ -21,6 +21,7 @@ module.exports = (sequelize, DataTypes) => {
         db.Exercise.belongsToMany(db.Category, { through: db.ExerciseCategory, foreignKey: 'exerciseId' });
         db.Exercise.belongsToMany(db.Equipment, { through: db.ExerciseEquipment, foreignKey: 'exerciseId' });
         db.Exercise.belongsToMany(db.TargetMuscle, { through: db.ExerciseTargetMuscle, foreignKey: 'exerciseId' });
+        db.Exercise.hasMany(db.ExerciseTemplate, { foreignKey: 'exerciseId' });
     }
     return Exercise;
 };

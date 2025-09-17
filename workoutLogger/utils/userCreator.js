@@ -1,5 +1,6 @@
 const db = require('../models');
 const axios = require('axios');
+const createError = require('http-errors');
 
 const checkForUser = async (req, res, next) => {
     try {
@@ -34,7 +35,7 @@ const checkForUser = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('Error checking for user:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        next(createError(error));
     }
 };
 

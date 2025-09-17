@@ -29,6 +29,7 @@ module.exports = (sequelize, DataTypes) => {
 
     SessionTemplate.associate = (models) => {
         SessionTemplate.belongsTo(models.WorkoutPlan, { foreignKey: 'workout_plan_id'});
+        SessionTemplate.hasMany(models.ExerciseTemplate, { foreignKey: 'session_template_id', onDelete: 'CASCADE' });
     };
 
     return SessionTemplate;
