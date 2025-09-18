@@ -6,23 +6,34 @@ class WorkoutPlanService {
     }
 
     async createWorkoutPlan(name, description, durationWeeks) {
-        await this.db.WorkoutPlan.create({
+       const plan = await this.db.WorkoutPlan.create({
             name: name,
             description: description,
             durationWeeks: durationWeeks
         });
+        return plan;
     }
 
-    async deleteWorkoutPlan() {
-        
+    async deleteWorkoutPlan(id) {
+        return await this.db.WorkoutPlan.destroy({ where: { id: id } });
     }
 
-    async updateWorkoutPlan() {
-       
+    async updateWorkoutPlan(id, updateData) {
+       const affectedRows = await this.db.WorkoutPlan.update(
+            updateData ,
+            { where: { id: id } }
+        );
+        return affectedRows[0];
     }
 
-    async getWorkoutPlanById() {
-       
+    async getWorkoutPlanById(id) {
+        const plan = await this.db.WorkoutPlan.findByPk(id);
+        return plan;
+    }
+
+    async getAllWorkoutPlans() {
+        const plans = await this.db.WorkoutPlan.findAll();
+        return plans;
     }
 
     async startWorkoutPlan() {
