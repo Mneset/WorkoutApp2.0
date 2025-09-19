@@ -174,8 +174,73 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(200);
         expect(response.body.status).toBe('success');
         expect(response.body.statuscode).toBe(200);
-        expect(response.body.data.result).toBe(1);
+        expect(response.body.data.result).toBe('Workout plan updated successfully');
     })
+
+    test('updating a workout plan that does not exist should result in a 404 and a message', async () => {
+        
+        const updateData = {
+            name: 'Updated Test Plan',
+        }
+
+        const response = await request(app)
+            .put('/api/v1/workout-plan/9999')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData)
+
+        //console.log(response.body);
+
+        expect(response.status).toBe(404);
+        expect(response.body.status).toBe('error');
+        expect(response.body.statuscode).toBe(404);
+        expect(response.body.data.result).toBe('No workout plan found');
+    })
+
+    test('Updating a workout plan with no data should result in a 400 and a message', async () => {
+        
+        const updateData = { }
+
+        const response = await request(app)
+            .put('/api/v1/workout-plan/3')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData)
+
+        //console.log(response.body);
+
+        expect(response.status).toBe(400);
+        expect(response.body.status).toBe('error');
+        expect(response.body.statuscode).toBe(400);
+        expect(response.body.data.result).toBe('No data provided for update');
+    })
+
+    test('Deleting a workout plan that exists should result in a 200 and a message', async () => {
+        
+        const response = await request(app)
+            .delete('/api/v1/workout-plan/3')
+            .set('Authorization', `Bearer ${authToken}`)
+
+        //console.log(response.body);
+
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('success');
+        expect(response.body.statuscode).toBe(200);
+        expect(response.body.data.result).toBe('Workout plan deleted successfully');
+    })
+
+    test('Deleting a workout plan that does not exist should result in a 404 and a message', async () => {
+        
+        const response = await request(app)
+            .delete('/api/v1/workout-plan/9999')
+            .set('Authorization', `Bearer ${authToken}`)
+        
+        //console.log(response.body);
+
+        expect(response.status).toBe(404);
+        expect(response.body.status).toBe('error');
+        expect(response.body.statuscode).toBe(404);
+        expect(response.body.data.result).toBe('No workout plan found');
+    })
+
 });
 
 afterAll(async () => {
