@@ -17,6 +17,7 @@ const sessionRouter = require('./routes/sessionLog');
 const setsRouter = require('./routes/sets');
 const exercisesRouter = require('./routes/exerciseLog');
 const workoutPlanRouter = require('./routes/workoutPlan');
+const sessionTemplateRouter = require('./routes/sessionTemplate');
 
 const apiPreFix = '/api/v1';
 
@@ -36,6 +37,7 @@ app.use(`${apiPreFix}/session`, sessionRouter);
 app.use(`${apiPreFix}/sets`, setsRouter);
 app.use(`${apiPreFix}/exercise-log`, exercisesRouter);
 app.use(`${apiPreFix}/workout-plan`, workoutPlanRouter);
+app.use(`${apiPreFix}/session-template`, sessionTemplateRouter);
 
 // Error handling
 app.use(function(req, res, next) {

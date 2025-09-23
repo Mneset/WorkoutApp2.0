@@ -7,8 +7,6 @@ const path = require('path');
 const app = require('../testingApp');
 const db = require('../models');
 const { seedTestDb } = require('../utils/seedTestDb');
-const { auth } = require('express-oauth2-jwt-bearer');
-const { log } = require('console');
 
 async function getToken() {
     try {
