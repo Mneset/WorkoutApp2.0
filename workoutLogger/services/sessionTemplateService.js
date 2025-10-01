@@ -12,17 +12,27 @@ class SessionTemplateService {
         return newSessionTemplate;
     }
 
-    async deleteTemplate() {
-        
+    async deleteTemplate(id) {
+        return await this.db.SessionTemplate.destroy({ where: { id: id } });
     }
 
-    async updateTemplate() {
-        
+    async updateTemplate(id, updateData) {
+        const affectedRows = await this.db.SessionTemplate.update(
+            updateData ,
+            { where: { id: id } }
+        );
+        return affectedRows[0];
     }
 
-    async getTemplateById() {
-        
-    }   
+    async getTemplateById(id) {
+        const template = await this.db.SessionTemplate.findByPk(id);
+        return template;
+    }
+
+    async getAllTemplates() {
+        const templates = await this.db.SessionTemplate.findAll();
+        return templates;
+    }
 }
 
 module.exports = SessionTemplateService;
