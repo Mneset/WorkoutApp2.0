@@ -19,8 +19,7 @@ class WorkoutPlanService {
     }
 
     async updateWorkoutPlan(id, updateData) {
-       const affectedRows = await this.db.WorkoutPlan.update(
-            updateData ,
+       const affectedRows = await this.db.WorkoutPlan.update(updateData,
             { where: { id: id } }
         );
         return affectedRows[0];
@@ -41,7 +40,7 @@ class WorkoutPlanService {
     }
 
     async getCurrentPlanStatus() {
-
+        
     }
 
     async getTodaysWorkout() {
@@ -49,7 +48,7 @@ class WorkoutPlanService {
     }
 
     async getExpectedSession() {
-    
+        
     }
 
     async startSessionFromTemplate() {
@@ -57,7 +56,7 @@ class WorkoutPlanService {
     }
 
     async advanceUserweek() {
- 
+        
     }
 }
 
