@@ -54,7 +54,7 @@ describe('Exercise template tests', () => {
             .set('Authorization', `Bearer ${authToken}`)
             .send({ name, description, durationWeeks })
 
-        console.log(planResponse.body);
+        //console.log(planResponse.body);
         
         expect(planResponse.statusCode).toBe(200);
 
@@ -70,7 +70,7 @@ describe('Exercise template tests', () => {
             .send(sessionData);
         
           
-        console.log(sessionResponse.body);
+        //console.log(sessionResponse.body);
 
         expect(sessionResponse.statusCode).toBe(200)
 
@@ -93,6 +93,126 @@ describe('Exercise template tests', () => {
         expect(response.statusCode).toBe(200);
     })
 
+    test('Creating a new exercise template with invalid input (missing fields) should result in a 400', async () => {
+        const exerciseData = {
+            sessionTemplateId: 1,
+            exerciseId: 1,
+            orderIndex: 1,
+        };
+
+        const response = await request(app)
+            .post('/api/v1/exercise-template')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(exerciseData);
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(400); 
+    });
+
+    test('Updating an existing exercise template with valid input should result in a 200', async () => {
+        const updateData = {
+            baseSets: 4,
+            baseReps: 8,
+            baseWeight: 120
+        };
+
+        const response = await request(app)
+            .put('/api/v1/exercise-template/1')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData);
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(200);
+    });
+
+    test('Updating a existing exercise temaplate with an invalid session template id should result in a 404', async () => {
+        const updateData = {
+            sessionTemplateId: 999,
+            baseSets: 4,
+            baseReps: 8,
+            baseWeight: 130
+        };
+
+        const response = await request(app)
+            .put('/api/v1/exercise-template/1')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData);
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(404);
+    });
+
+    test('Updating a existing exercise template with an invalid exercise id should result in a 404', async () => {
+        const updateData = {
+            exerciseId: 999,
+            baseSets: 4,
+            baseReps: 8,
+            baseWeight: 130
+        };
+
+        const response = await request(app)
+            .put('/api/v1/exercise-template/1')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData);
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(404);
+    });
+
+    test('Updating a exercise template without any fields should result in a 400', async () => {
+        const updateData = {};
+
+        const response = await request(app)
+    
+            .put('/api/v1/exercise-template/1')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData);
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(400);
+    });
+
+    test('Updating a non-existing exercise template should result in a 404', async () => {
+        const updateData = {
+            baseSets: 4,
+            baseReps: 8,
+            baseWeight: 120
+        };
+
+        const response = await request(app)
+            .put('/api/v1/exercise-template/999')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData);
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(404);
+    })
+
+    test('Deleting an existing exercise template should result in a 200', async () => {
+        const response = await request(app)
+            .delete('/api/v1/exercise-template/1')
+            .set('Authorization', `Bearer ${authToken}`)
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(200);
+    });
+
+    test('Deleting a non-existing exercise template should result in a 404', async () => {
+        const response = await request(app)
+            .delete('/api/v1/exercise-template/1')
+            .set('Authorization', `Bearer ${authToken}`)
+
+        //console.log(response.body);
+
+        expect(response.statusCode).toBe(404);
+    });
 })
 
 afterAll(async () => {

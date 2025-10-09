@@ -6,6 +6,8 @@ const ExerciseTemplateService = require('../services/exerciseTemplateService');
 const exerciseTemplateService = new ExerciseTemplateService(db);
 const ExerciseService = require('../services/exerciseService');
 const exerciseService = new ExerciseService(db);
+const SessionTemplateService = require('../services/sessionTemplateService');
+const sessionTemplateService = new SessionTemplateService(db);
 const checkForUser = require('../utils/userCreator');
 
 if (process.env.NODE_ENV !== 'test') {
@@ -86,7 +88,7 @@ router.put('/:id', async (req, res, next) => {
         }
 
         if(updateData.sessionTemplateId) {
-            const sessionTemplate = await exerciseTemplateService.getExerciseTemplateById(updateData.sessionTemplateId);
+            const sessionTemplate = await sessionTemplateService.getTemplateById(updateData.sessionTemplateId);
             if(!sessionTemplate) {
                 return next(createError(404, 'Session template not found'))
             }
