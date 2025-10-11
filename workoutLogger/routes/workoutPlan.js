@@ -1,5 +1,5 @@
-const express = require('express');
-const router = express.Router();
+const express = require('express'); 
+const router = express.Router(); 
 const db = require('../models');
 const createError = require('http-errors')
 const WorkoutPlanService = require('../services/workoutPlanService');

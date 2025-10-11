@@ -96,8 +96,8 @@ describe('Exercise template tests', () => {
     test('Creating a new exercise template with invalid input (missing fields) should result in a 400', async () => {
         const exerciseData = {
             sessionTemplateId: 1,
-            exerciseId: 1,
-            orderIndex: 1,
+            exerciseid: 1,
+            orderindex: 1,
         };
 
         const response = await request(app)
@@ -117,6 +117,8 @@ describe('Exercise template tests', () => {
             baseWeight: 120
         };
 
+        
+    
         const response = await request(app)
             .put('/api/v1/exercise-template/1')
             .set('Authorization', `Bearer ${authToken}`)

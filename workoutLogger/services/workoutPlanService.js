@@ -1,5 +1,3 @@
-const { op } = require('sequelize');
-
 class WorkoutPlanService {
     constructor(db) {
         this.db = db;
@@ -29,18 +27,44 @@ class WorkoutPlanService {
         const plan = await this.db.WorkoutPlan.findByPk(id);
         return plan;
     }
-
+    
     async getAllWorkoutPlans() {
         const plans = await this.db.WorkoutPlan.findAll();
         return plans;
     }
 
-    async startWorkoutPlan() {
-        
+    async startWorkoutPlan(workoutPlanId, userId, startDate) {
+        await this.db.User.update({
+                workoutPlanId: workoutPlanId,
+                planStartDate: startDate,
+                currentWeek: 1
+        }, {
+            where: { id: userId },
+        });
+
+        const user = await this.db.User.findOne({
+            where: {id: userId},
+            include: [
+                {model: this.db.workoutPlan}
+            ]  
+        })
+
+        return user
     }
 
-    async getCurrentPlanStatus() {
-        
+    async getCurrentPlanStatus(userId) {
+       const user = await this.db.User.findOne({
+        where: {id: userId},
+        include: [
+            {model: this.db.workoutPlan}
+        ]
+       })
+
+       if(!user.workoutPlanId) {
+        return null
+       }
+
+       return user
     }
 
     async getTodaysWorkout() {
