@@ -33,7 +33,7 @@ class SessionService {
         }
     }
 
-    async startSession(userId) {
+    /* async startSession(userId) {
         try {
             const session = await this.db.SessionLog.create({
                 userId,
@@ -43,6 +43,32 @@ class SessionService {
         } catch (error) {
             throw error;  
         }     
+    } */
+
+    async startSession(userId, sessionTemplateId = null) {
+        try {
+            let sessionData = {
+                userId: userId,
+                sessionDateStart: new Date() 
+            }
+
+            if(sessionTemplateId) {
+                const user = await this.db.User.findByPk(userId)
+                const sessionTemplate = await this.db.SessionTemplate.findByPk(sessionTemplateId)
+
+                if(sessionTemplate && user.workoutPlanId) {
+                    sessionData.sessionTemplateId = sessionTemplateId,
+                    sessionData.weekNumber = user.currentWeek,
+                    sessionData.workoutPLanId = user.workoutPlanId,
+                    sessionData.name = `${sessionTemplate.name} - Week ${user.currentWeek}`
+                } 
+            }
+            
+            const session = await this.db.SessionLog.create(sessionData)
+            return session 
+        } catch (error) {
+            throw error
+        }
     }
 
     async endSession(notes, sessionLogId, updatedLogs, name) {

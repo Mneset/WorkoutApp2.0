@@ -33,38 +33,16 @@ class WorkoutPlanService {
         return plans;
     }
 
-    async startWorkoutPlan(workoutPlanId, userId, startDate) {
-        await this.db.User.update({
-                workoutPlanId: workoutPlanId,
-                planStartDate: startDate,
-                currentWeek: 1
+    async startWorkoutPlan(userId, workoutPlanId, startDate) {
+        const plan = await this.db.User.update({
+            workoutPlanId: workoutPlanId,
+            planStartDate: startDate,
+            currentWeek: 1
         }, {
             where: { id: userId },
         });
 
-        const user = await this.db.User.findOne({
-            where: {id: userId},
-            include: [
-                {model: this.db.workoutPlan}
-            ]  
-        })
-
-        return user
-    }
-
-    async getCurrentPlanStatus(userId) {
-       const user = await this.db.User.findOne({
-        where: {id: userId},
-        include: [
-            {model: this.db.workoutPlan}
-        ]
-       })
-
-       if(!user.workoutPlanId) {
-        return null
-       }
-
-       return user
+        return plan 
     }
 
     async getTodaysWorkout() {

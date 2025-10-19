@@ -238,7 +238,6 @@ describe('Workout Plan tests', () => {
         expect(response.body.statuscode).toBe(404);
         expect(response.body.data.result).toBe('No workout plan found');
     })
-
 });
 
 afterAll(async () => {
