@@ -52,19 +52,49 @@ class SessionService {
                 sessionDateStart: new Date() 
             }
 
+            let sessionTemplate = null
+
             if(sessionTemplateId) {
                 const user = await this.db.User.findByPk(userId)
-                const sessionTemplate = await this.db.SessionTemplate.findByPk(sessionTemplateId)
+                sessionTemplate = await this.db.SessionTemplate.findByPk(sessionTemplateId, {
+                    include: [{
+                        model: this.db.ExerciseTemplate,
+                        include: [this.db.Exercise]
+                    }]
+                })
 
                 if(sessionTemplate && user.workoutPlanId) {
                     sessionData.sessionTemplateId = sessionTemplateId,
                     sessionData.weekNumber = user.currentWeek,
-                    sessionData.workoutPLanId = user.workoutPlanId,
+                    sessionData.workoutPlanId = user.workoutPlanId,
                     sessionData.name = `${sessionTemplate.name} - Week ${user.currentWeek}`
                 } 
             }
             
             const session = await this.db.SessionLog.create(sessionData)
+
+            if(sessionTemplateId && sessionTemplate?.ExerciseTemplates) {
+            const exerciseLogPromises = [];
+            
+            sessionTemplate.ExerciseTemplates.forEach(exerciseTemplate => {
+                // Create baseSets number of exercise logs (each representing one set)
+                for (let i = 0; i < exerciseTemplate.baseSets; i++) {
+                    exerciseLogPromises.push(
+                        this.db.ExerciseLog.create({
+                            exerciseId: exerciseTemplate.exerciseId,
+                            setId: 1, // Default to normal set type (1 = normal)
+                            reps: exerciseTemplate.baseReps,
+                            weight: exerciseTemplate.baseWeight || 0,
+                            notes: '',
+                            sessionLogId: session.id
+                        })
+                    );
+                }
+            });
+
+            await Promise.all(exerciseLogPromises);
+        }
+
             return session 
         } catch (error) {
             throw error
@@ -72,7 +102,6 @@ class SessionService {
     }
 
     async endSession(notes, sessionLogId, updatedLogs, name) {
-    const t = await this.db.sequelize.transaction();
     try {
         await this.db.SessionLog.update({
             notes: notes,
@@ -80,7 +109,6 @@ class SessionService {
             name: name
         }, {
             where: { id: sessionLogId },
-            transaction: t
         });
 
         if (Array.isArray(updatedLogs)) {
@@ -93,16 +121,12 @@ class SessionService {
                     },
                     {
                         where: { id: log.id },
-                        transaction: t
                     }
                 );
             }
         }
-
-        await t.commit();
         return true;
     } catch (error) {
-        await t.rollback();
         throw error;
     }
 }
@@ -114,7 +138,7 @@ class SessionService {
             });
             return session;
         } catch (error) {
-            throw error;
+            throw error
         }
     }
 }

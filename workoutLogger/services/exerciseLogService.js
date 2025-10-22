@@ -42,6 +42,7 @@ class ExerciseLogService {
         }
     }
 
+    async 
 }
 
 module.exports = ExerciseLogService;

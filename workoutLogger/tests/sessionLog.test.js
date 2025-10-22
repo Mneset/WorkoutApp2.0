@@ -115,7 +115,7 @@ describe('Session log tests', () => {
             .set('Authorization', `Bearer ${authToken}`)
             .send(sessionInfo)
 
-        console.log(response.body)
+        //console.log(response.body)
 
         expect(response.statusCode).toBe(201)
     })
@@ -134,6 +134,41 @@ describe('Session log tests', () => {
         console.log(response.body)
 
         expect(response.statusCode).toBe(201)       
+    })
+
+    test('Deleting an existing session should result in a 200', async () => {
+        const response = await request(app)
+            .delete('/api/v1/session/1')
+            .set('Authorization', `Bearer ${authToken}`)
+
+        //console.log(response.body)
+
+        expect(response.statusCode).toBe(200)
+    })
+
+    test('Trying to delete a non-existent session log should result in a 404', async () => {
+        const response = await request(app)
+            .delete('/api/v1/session/999')
+            .set('Authorization', `Bearer ${authToken}`)
+        
+        //console.log(response.body)
+
+        expect(response.statusCode).toBe(404)
+    })
+
+    test('Updating a session with valid input should result in a 200', async () => {
+        const updateData = {
+            name: 'Chest Day (Updated) - Week 1'
+        }
+
+        const response = await request(app)
+            .put('/api/v1/session/4')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send(updateData)
+
+        //console.log(response.body)
+
+        expect(response.statusCode).toBe(200)
     })
 })
 
