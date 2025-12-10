@@ -23,18 +23,22 @@ module.exports = (sequelize, DataTypes) => {
         },
         orderIndex: {
             type: DataTypes.INTEGER,
+            field: 'order_index',
             allowNull: false
         },
         baseSets: {
             type: DataTypes.INTEGER,
+            field: 'base_sets',
             allowNull: false
         },
         baseReps: {
             type: DataTypes.INTEGER,
+            field: 'base_reps',
             allowNull: false
         },
         baseWeight: {
             type: DataTypes.FLOAT,
+            field: 'base_weight',
             allowNull: true
         }
     }, {

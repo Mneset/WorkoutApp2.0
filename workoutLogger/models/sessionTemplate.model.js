@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         dayOffset: {
             type: DataTypes.INTEGER,
+            field: 'days_offset',
             allowNull: false,
             defaultValue: 0
         },

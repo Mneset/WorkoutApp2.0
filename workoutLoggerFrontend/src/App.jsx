@@ -9,6 +9,9 @@ import ProfileComponent from './components/profileComponent.js'
 import SesssionRedirectComponent from './components/sessionRedirectComponent.js';
 import HistoryRedirectComponent from './components/historyRedirectComponent.js';
 import SessionContent2Component from './components/sessionContent2Component.js';
+//import WorkoutPlanCreatorComponent from "./components/workoutPlanCreatorComponent.js"
+import WorkoutPlanSelectorComponent from "./components/workoutPlanSelectorComponent.js"
+import WorkoutPlanRedirectComponent from './components/workoutPlanRedirectComponent.js'
 
 
 function App() {
@@ -44,14 +47,28 @@ function App() {
             } />
           <Route path="/new-session" element={
             <div className='form-container'>
-            {!sessionStarted && <StartSessionComponent onSessionStart={handleSessionStarted}/>}
-            {sessionStarted && <SessionContent2Component sessionLogId={sessionLogId} onSessionEnd={handleSessionEnded} /> }
-          </div>
+              {!sessionStarted && <StartSessionComponent onSessionStart={handleSessionStarted}/>}
+              {sessionStarted && <SessionContent2Component sessionLogId={sessionLogId} onSessionEnd={handleSessionEnded} /> }
+            </div>
           } /> 
           <Route path="/session-history" element={
             <div className='table-container'>
-            <GetSessions2Component />
-          </div>
+              <GetSessions2Component />
+            </div>
+          } />
+          <Route path="/workout-plan" element={
+            <div className="plan-container">
+              <WorkoutPlanRedirectComponent/>
+            </div>
+          } />
+          <Route path="/workout-plan/create-plan" element={
+            <div>
+            </div>
+          } />
+          <Route path="/workout-plan/select-plan" element={
+            <div>
+              <WorkoutPlanSelectorComponent/>
+            </div>
           } />
           </Routes>
       </div>

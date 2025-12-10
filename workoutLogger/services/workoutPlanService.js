@@ -29,20 +29,33 @@ class WorkoutPlanService {
     }
     
     async getAllWorkoutPlans() {
-        const plans = await this.db.WorkoutPlan.findAll();
+        const plans = await this.db.WorkoutPlan.findAll({
+                include: [{
+                    model: this.db.SessionTemplate ,
+                    include: [{
+                        model: this.db.ExerciseTemplate,
+                        include: [{
+                            model: this.db.Exercise
+                        }]
+                    }]
+                }]
+        });
+
+        console.log(plans)
+ 
         return plans;
     }
 
     async startWorkoutPlan(userId, workoutPlanId, startDate) {
-        const plan = await this.db.User.update({
-            workoutPlanId: workoutPlanId,
+        const [rowsUpdated] = await this.db.User.update({
+           workoutPlanId: workoutPlanId,
             planStartDate: startDate,
             currentWeek: 1
         }, {
             where: { id: userId },
         });
 
-        return plan 
+        return rowsUpdated;
     }
 
     async getTodaysWorkout() {

@@ -9,6 +9,8 @@ const { initializeDb } = require('./config/database');
 const { auth } = require('express-oauth2-jwt-bearer')
 const { errorHandler } = require('./utils/errorHandler');
 
+const apiPreFix = '/api/v1';
+
 const jwtCheck = auth ({
     audience: process.env.AUTH_AUDIENCE,
     issuerBaseURL: process.env.AUTH_ISSUER_BASE_URL,
@@ -22,9 +24,9 @@ const sessionRouter = require('./routes/sessionLog');
 const setsRouter = require('./routes/sets');
 const exercisesRouter = require('./routes/exerciseLog');
 const workoutPlanRouter = require('./routes/workoutPlan');
-//const sessionTemplate = require('./routes/sessionTemplate');
-//const exerciseTemplate = require('./routes/exerciseTemplate');
-const apiPreFix = '/api/v1';
+const sessionTemplateRouter = require('./routes/sessionTemplate');
+const exerciseTemplateRouter = require('./routes/exerciseTemplate');
+const usersRouter = require('./routes/user')
 
 // Middleware
 
@@ -43,8 +45,9 @@ app.use(`${apiPreFix}/session`, sessionRouter);
 app.use(`${apiPreFix}/sets`, setsRouter);
 app.use(`${apiPreFix}/exercise-log`, exercisesRouter);
 app.use(`${apiPreFix}/workout-plan`, workoutPlanRouter);
-//app.use(`${apiPreFix}/session-template`, sessionTemplate);
-//app.use(`${apiPreFix}/exercise-template`, exerciseTemplate);
+app.use(`${apiPreFix}/session-template`, sessionTemplateRouter);
+app.use(`${apiPreFix}/exercise-template`, exerciseTemplateRouter);
+app.use(`${apiPreFix}/users`, usersRouter)
 
 // Initialize the database
 

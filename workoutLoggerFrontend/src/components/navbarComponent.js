@@ -27,7 +27,7 @@ function NavbarComponent() {
               <Link className="nav-link" to="/session-history">History</Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link" to="/">Plans</Link>
+              <Link className="nav-link" to="/workout-plan">Plans</Link>
             </li>
             <li className="nav-item">
               {isAuthenticated ? (

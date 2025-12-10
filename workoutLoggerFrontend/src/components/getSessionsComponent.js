@@ -55,7 +55,7 @@ function GetSessionsComponent() {
         }
     }
 
-    useEffect(()=> {
+    useEffect(() => {
         handleGetSessions();
     }, []);
 

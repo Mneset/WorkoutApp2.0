@@ -37,7 +37,8 @@ module.exports = (sequelize, DataTypes) => {
             field: 'current_week'
         }
     }, {
-        tableName: 'users'
+        tableName: 'users',
+        timestamps: false
     });
 
     // Associations
