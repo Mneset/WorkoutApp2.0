@@ -166,13 +166,14 @@ img {
 .session-redirect-container,
 .history-redirect-container,
 .new-plan-redirect-container,
-.existing-plan-redirect-container {
+.existing-plan-redirect-container,
+.start-session-container {
     display: flex;
     justify-content: center;
     align-items: center; /* Add this line */
     flex-direction: column;
     background: rgba(255,255,255,0.05);
-    height: 400px;
+    height: 600px;
     width: 400px;
     border: 2px solid rgb(175, 20, 20);
     border-radius: 20px;
@@ -920,4 +921,53 @@ body.modal-open {
     transform: scale(1.1);
     background-color: rgb(105, 11, 11);
     transition: background-color 0.2s ease;
+}
+
+.start-session-container form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.start-session-container h2 {
+    width: 100%;
+    text-align: center;
+}
+
+.start-session-container-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.plan-redirect-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    width: 100%
+}
+
+.plan-redirect-container-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width:100%
+}
+
+.workout-plan-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 0 70px;
+}
+
+.plans-list {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    width: 100%;
 }

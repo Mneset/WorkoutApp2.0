@@ -12,6 +12,30 @@ if (process.env.NODE_ENV !== 'test') {
     router.use(checkForUser);
 }
 
+router.get('/', async (req, res, next) => {
+    const userId = req.auth?.payload.sub
+
+    try {
+        const user = await userService.getCurrentPlanStatus(userId)
+
+        if(!user) {
+            return next(createError(404, 'User not found'))
+        }
+
+        console.log(user)
+
+        res.status(200).json({
+                    status: 'success',
+                    statuscode: 200,
+                    data: {
+                        result: user
+                    }
+                })
+    } catch(error) {
+        conosle.error(error)
+    }
+})
+
 router.put('/:id', async (req, res, next) => {
     // Change to use the current users id, not one given in the params
     const userId = req.params.id

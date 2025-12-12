@@ -35,8 +35,9 @@ function WorkoutPlanSelectorComponent() {
     }, [])
 
     return (
-            <div className="workout-plan-selector">
+        <div className="workout-plan-selector">
             <h1>Select a Workout Plan</h1>
+            <div className="worokoutt-plan-selector">
             {workoutPlans.length === 0 ? (
                 <p>No workout plans available</p>
             ) : (
@@ -79,6 +80,7 @@ function WorkoutPlanSelectorComponent() {
             {modal && selectedPlan && (
                 <FullWorkoutPlanModalComponent plan={selectedPlan} onClose={toggleModal} />
             )}
+            </div>
         </div>
     )
 }

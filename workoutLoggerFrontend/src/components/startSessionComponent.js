@@ -34,11 +34,14 @@ function StartSessionComponent({ onSessionStart }) {
     }
 
     return (
-        <div>
-            <h2>Start a new session</h2>
-            <form className='start-session-form' onSubmit={handleStartSession}>
-                <button type="submit">Start session</button>
-            </form>
+        <div className="start-session-container-wrapper">
+            <h1>Start a new workout</h1>
+            <div className="start-session-container">
+                <h2>Start a new session</h2>
+                <form className='start-session-form' onSubmit={handleStartSession}>
+                    <button type="submit">Start session</button>
+                </form>
+            </div>
         </div>
     )
 }
