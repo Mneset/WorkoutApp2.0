@@ -14,7 +14,7 @@ const checkForUser = async (req, res, next) => {
         if(!user) {
             const accessToken = req.auth.token;
 
-            const userInfoResponse = await axios.get('https://dev-n8xnfzfw0w26p6nq.us.auth0.com/userinfo', {
+            const userInfoResponse = await axios.get(`${process.env.AUTH_ISSUER_BASE_URL}userinfo`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                 },

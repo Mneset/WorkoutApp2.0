@@ -31,7 +31,7 @@ const usersRouter = require('./routes/user')
 // Middleware
 
 app.use(cors({
-    origin: 'http://localhost:3001',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));

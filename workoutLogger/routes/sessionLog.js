@@ -3,87 +3,79 @@ const router = express.Router();
 const db = require('../models');
 const SessionService = require('../services/sessionService');
 const sessionService = new SessionService(db);
-const checkForUser = require('../utils/userCreator')
+const checkForUser = require('../utils/userCreator');
+const { validate, validateQuery } = require('../middleware/validate');
+const { startSessionSchema, endSessionSchema, getSessionsQuerySchema } = require('../schemas/sessionSchemas');
+const { success, error } = require('../utils/response');
 
 if (process.env.NODE_ENV !== 'test') {
     router.use(checkForUser);
 }
 
-router.delete('/:id', async (req, res) => {
-    const sessionLogId  = req.params.id;
-
-    console.log(`Deleting session with ID: ${sessionLogId}`);
-    
-    try {
-        if (!sessionLogId) {
-            return res.status(400).json({ message: 'Session ID is required' });
-        }
-        const session = await sessionService.deleteSession(sessionLogId);
-        if (!session) {
-            return res.status(404).json({ message: 'Session not found' });
-        }
-        res.status(200).json({ message: 'Session deleted successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to delete session' });
-    }
-});
-
-router.post('/', async (req, res) => {
+router.post('/', validate(startSessionSchema), async (req, res) => {
     const { userId, sessionTemplateId } = req.body;
-    console.log('req.auth:', req.auth.payload.sub);
-    console.log(req.body);
-    
-    if(process.env.NODE_ENV !== 'test' && req.auth?.payload?.sub !== userId) {
-        return res.status(403).json({ message: 'Unauthorized' });
+
+    if (process.env.NODE_ENV !== 'test' && req.auth?.payload?.sub !== userId) {
+        return error(res, 'Unauthorized', 403);
     }
     try {
         const session = await sessionService.startSession(userId, sessionTemplateId);
-        res.status(201).json({ sessionLogId: session.id });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to start session' });
+        return success(res, { sessionLogId: session.id }, 201);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to start session');
     }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(endSessionSchema), async (req, res) => {
     const sessionLogId = req.params.id;
     const { notes, updatedLogs, name } = req.body;
     try {
         const session = await sessionService.endSession(notes, sessionLogId, updatedLogs, name);
-        res.status(200).json({ session });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to end session' });
+        return success(res, session);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to end session');
     }
 });
 
-router.get('/', async (req, res) => {
+router.get('/', validateQuery(getSessionsQuerySchema), async (req, res) => {
     const { userId } = req.query;
     try {
-        if (!userId) {
-            return res.status(400).json({ message: 'User ID is required' });
-        }
         const sessions = await sessionService.getSessionsByUserId(userId);
-        res.status(200).json({ sessions });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to get sessions' });
+        return success(res, sessions);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to get sessions');
     }
-})
+});
 
 router.get('/:id', async (req, res) => {
     const sessionLogId = req.params.id;
     try {
-        if(!sessionLogId) {
-            return res.status(400).json({ message: 'Session ID is required' });
-        }
         const session = await sessionService.getSessionById(sessionLogId);
-        res.status(200).json({ session});
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to get session'})
+        if (!session) {
+            return error(res, 'Session not found', 404);
+        }
+        return success(res, session);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to get session');
     }
-})
+});
+
+router.delete('/:id', async (req, res) => {
+    const sessionLogId = req.params.id;
+    try {
+        const deleted = await sessionService.deleteSession(sessionLogId);
+        if (!deleted) {
+            return error(res, 'Session not found', 404);
+        }
+        return success(res, 'Session deleted successfully');
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to delete session');
+    }
+});
 
 module.exports = router;

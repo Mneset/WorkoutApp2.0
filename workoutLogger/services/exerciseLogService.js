@@ -19,7 +19,7 @@ class ExerciseLogService {
         }
     }
 
-    async updateExerciseLog(reps, weight, notes, exerciseLogId) {
+    async updateExerciseLog(exerciseLogId, reps, weight, notes) {
         try {
             const exerciseLog = await this.db.ExerciseLog.update(
                 { reps, weight, notes },
@@ -41,9 +41,6 @@ class ExerciseLogService {
             throw error;
         }
     }
-
-    async 
 }
 
 module.exports = ExerciseLogService;
-

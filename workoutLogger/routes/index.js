@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../models');
+const { success, error } = require('../utils/response');
 
-router.get('/', function (req, res, next) {
+router.get('/', function (req, res) {
     try {
-        res.status(200).json({ message: 'Connected!' });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to connect to database' });       
+        return success(res, 'Connected!');
+    } catch (err) {
+        return error(res, 'Failed to connect to database');
     }
 });
 

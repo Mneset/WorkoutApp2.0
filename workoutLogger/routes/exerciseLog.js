@@ -6,53 +6,56 @@ const exerciseLogService = new ExerciseLogService(db);
 const ExerciseService = require('../services/exerciseService');
 const exerciseService = new ExerciseService(db);
 const checkForUser = require('../utils/userCreator');
+const { validate } = require('../middleware/validate');
+const { createExerciseLogSchema, updateExerciseLogSchema } = require('../schemas/exerciseLogSchemas');
+const { success, error } = require('../utils/response');
 
 router.use(checkForUser);
 
-router.post('/', async (req, res) => {
+router.post('/', validate(createExerciseLogSchema), async (req, res) => {
     const { exerciseId, setId, reps, weight, notes, sessionLogId } = req.body;
     try {
         const exerciseLog = await exerciseLogService.addExerciseLogToSession(exerciseId, setId, reps, weight, notes, sessionLogId);
-        res.status(201).json({ exerciseLog });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to add exerciseLog' }); 
+        return success(res, exerciseLog, 201);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to add exerciseLog');
     }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(updateExerciseLogSchema), async (req, res) => {
     const { reps, weight, notes } = req.body;
     const exerciseLogId = req.params.id;
     try {
         const updatedExerciseLog = await exerciseLogService.updateExerciseLog(exerciseLogId, reps, weight, notes);
-        res.status(200).json({ updatedExerciseLog });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to update exercise log' });
+        return success(res, updatedExerciseLog);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to update exercise log');
     }
 });
 
 router.get('/', async (req, res) => {
     try {
-        const exercises = await exerciseService.getAllExercises()
-        res.status(200).json({ exercises })
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to get exercises'})
+        const exercises = await exerciseService.getAllExercises();
+        return success(res, exercises);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to get exercises');
     }
-})
+});
 
 router.delete('/:id', async (req, res) => {
     const exerciseLogId = req.params.id;
     try {
         const deleted = await exerciseLogService.deleteExerciseLog(exerciseLogId);
         if (!deleted) {
-            return res.status(404).json({ message: 'Exercise log not found' });
+            return error(res, 'Exercise log not found', 404);
         }
-        res.status(200).json({ message: 'Exercise log deleted successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to delete exercise log' });
+        return success(res, 'Exercise log deleted successfully');
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to delete exercise log');
     }
 });
 

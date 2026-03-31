@@ -4,7 +4,12 @@
   "main": "index.js",
   "scripts": {
     "test": "jest --runInBand --verbose",
-    "start": "node app.js"
+    "start": "node app.js",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo:all",
+    "seed": "npx sequelize-cli db:seed:all",
+    "seed:undo": "npx sequelize-cli db:seed:undo:all",
+    "db:reset": "npx sequelize-cli db:migrate:undo:all && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all"
   },
   "keywords": [],
   "author": "",
@@ -22,9 +27,11 @@
     "mysql2": "^3.12.0",
     "request": "^2.88.2",
     "sequelize": "^6.37.5",
-    "supertest": "^7.1.4"
+    "supertest": "^7.1.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "sequelize-cli": "^6.6.5",
     "sqlite3": "^5.1.7"
   }
 }

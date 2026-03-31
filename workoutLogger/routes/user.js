@@ -1,85 +1,67 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models');
-const createError = require('http-errors')
 const WorkoutPlanService = require('../services/workoutPlanService');
 const workoutPlanService = new WorkoutPlanService(db);
-const UserService = require('../services/userService')
-const userService = new UserService(db)
+const UserService = require('../services/userService');
+const userService = new UserService(db);
 const checkForUser = require('../utils/userCreator');
+const { validate } = require('../middleware/validate');
+const { startPlanSchema } = require('../schemas/userSchemas');
+const { success, error } = require('../utils/response');
 
 if (process.env.NODE_ENV !== 'test') {
     router.use(checkForUser);
 }
 
-router.get('/', async (req, res, next) => {
-    const userId = req.auth?.payload.sub
+router.get('/', async (req, res) => {
+    const userId = req.auth?.payload.sub;
 
     try {
-        const user = await userService.getCurrentPlanStatus(userId)
+        const user = await userService.getCurrentPlanStatus(userId);
 
-        if(!user) {
-            return next(createError(404, 'User not found'))
+        if (!user) {
+            return error(res, 'User not found', 404);
         }
 
-        console.log(user)
-
-        res.status(200).json({
-                    status: 'success',
-                    statuscode: 200,
-                    data: {
-                        result: user
-                    }
-                })
-    } catch(error) {
-        conosle.error(error)
+        return success(res, user);
+    } catch (err) {
+        console.error(err);
+        return error(res, 'Failed to get user info');
     }
-})
+});
 
-router.put('/:id', async (req, res, next) => {
-    // Change to use the current users id, not one given in the params
-    const userId = req.params.id
-    const { workoutPlanId, startDate } = req.body
+router.put('/:id', validate(startPlanSchema), async (req, res) => {
+    const userId = req.params.id;
+    const { workoutPlanId, startDate } = req.body;
     try {
-       const user = await userService.findUserById(userId)
+        const user = await userService.findUserById(userId);
 
-       if(!user) {
-        return next(createError(494, 'No user found with that id')) 
-       }
-       
-       let activePlan = await userService.getCurrentPlanStatus(userId)
-       
-       // Temporary. Should implement comfirm replacing a plan if user has a active plan
-       if(activePlan) {
-          return next(createError(400, 'User already has an active plan. Quit current plan to start a bew one'))
-       }
-       
-       const workoutPlan = await workoutPlanService.getWorkoutPlanById(workoutPlanId)
-
-       if(!workoutPlan) {
-        return next(createError(404, 'No workoutplan found with that id'))
-       }
-
-       const startDateCheck = new Date(startDate)
-       if(isNaN(startDateCheck.getTime())) {
-        return next(createError(400, 'Start date has to be a valid date')) 
-       }
-       
-       await workoutPlanService.startWorkoutPlan(userId, workoutPlanId, startDate) 
-
-       activePlan = await userService.getCurrentPlanStatus(userId)
-
-       res.status(200).json({
-        status: 'success',
-        statuscode: 200,
-        data: {
-            result: activePlan
+        if (!user) {
+            return error(res, 'No user found with that id', 404);
         }
-       })
-    } catch(error) {
-        console.error('Error fetching workout plans:', error);
-        next(createError(error))
-    }
-})
 
-module.exports = router
+        const activePlan = await userService.getCurrentPlanStatus(userId);
+
+        if (activePlan) {
+            return error(res, 'User already has an active plan. Quit current plan to start a new one', 400);
+        }
+
+        const workoutPlan = await workoutPlanService.getWorkoutPlanById(workoutPlanId);
+
+        if (!workoutPlan) {
+            return error(res, 'No workout plan found with that id', 404);
+        }
+
+        await workoutPlanService.startWorkoutPlan(userId, workoutPlanId, startDate);
+
+        const updatedUser = await userService.getCurrentPlanStatus(userId);
+
+        return success(res, updatedUser);
+    } catch (err) {
+        console.error('Error starting workout plan:', err);
+        return error(res, 'Failed to start workout plan');
+    }
+});
+
+module.exports = router;

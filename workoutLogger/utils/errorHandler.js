@@ -8,40 +8,40 @@ function errorHandler(err, req, res, next) {
             status: 'error',
             statuscode: 404,
             data: {
-                result: err.message 
+                message: err.message
             }
         });
     }
 
-    if( err.name === 'UnauthorizedError') {
+    if (err.name === 'UnauthorizedError') {
         console.error('Error handler:', err)
         return res.status(401).json({
             status: 'error',
             statuscode: 401,
             data: {
-                result: 'Invalid token'
+                message: 'Invalid token'
             }
         });
     }
 
-    if(err instanceof ValidationError) {
+    if (err instanceof ValidationError) {
         console.error('Error handler:', err)
         return res.status(400).json({
             status: 'error',
             statuscode: 400,
             data: {
-                result: err.errors.map(e => e.message).join(', ')
+                message: err.errors.map(e => e.message).join(', ')
             }
         })
     }
 
-    if(err instanceof UniqueConstraintError) {
+    if (err instanceof UniqueConstraintError) {
         console.error('Error handler:', err)
         return res.status(400).json({
             status: 'error',
             statuscode: 400,
             data: {
-                result: 'Unique constraint violation'
+                message: 'Unique constraint violation'
             }
         })
     }
@@ -52,18 +52,18 @@ function errorHandler(err, req, res, next) {
             status: 'error',
             statuscode: 400,
             data: {
-                result: 'Foreign key constraint violation'
+                message: 'Foreign key constraint violation'
             }
         })
     }
-    
-    if(err.status && err.status !== 500 && err.expose !== undefined) {
+
+    if (err.status && err.status !== 500 && err.expose !== undefined) {
         console.error('Error handler:', err)
         return res.status(err.status).json({
             status: 'error',
             statuscode: err.status,
             data: {
-                result: err.message
+                message: err.message
             }
         });
     }
@@ -72,11 +72,10 @@ function errorHandler(err, req, res, next) {
     return res.status(500).json({
         status: 'error',
         statuscode: 500,
-        data:{
-            result: 'Internal server error'
+        data: {
+            message: 'Internal server error'
         }
     })
-
 }
 
 module.exports = { errorHandler }
