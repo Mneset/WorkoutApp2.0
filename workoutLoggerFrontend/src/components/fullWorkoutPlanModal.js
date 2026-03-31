@@ -1,13 +1,13 @@
-import React from 'react';
-import { useAuth0 } from "@auth0/auth0-react";
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
 function FullWorkoutPlanModalComponent({ plan, onClose }) {
-    const { getAccessTokenSilently, user } = useAuth0();
+    const { getToken, user } = useAuth();
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Create a map of dayOffset to sessions
     const sessionsByDay = {};
     if (plan.SessionTemplates) {
         plan.SessionTemplates.forEach(session => {
@@ -16,32 +16,23 @@ function FullWorkoutPlanModalComponent({ plan, onClose }) {
     }
 
     const startWorkoutPlan = async () => {
+        setLoading(true);
+        setError(null);
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                    scope: "openid profile email",
-                },
-            }); 
-
+            const accessToken = await getToken();
             const today = new Date().toISOString().split('T')[0];
 
-            const response = await api.put(`/users/${user.sub}`, 
-                {
-                    workoutPlanId: plan.id,
-                    startDate: today,
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`
-                    }
-                })
-
-            console.log(response)
-            onClose()
-        } catch(error) {
-            console.error('Error starting plan:', error);
-            console.error('Error response:', error.response?.data);console.error(error)
+            await api.put(`/users/${user.sub}`,
+                { workoutPlanId: plan.id, startDate: today },
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            onClose();
+        } catch (err) {
+            const msg = err.response?.data?.data?.message || 'Failed to start plan';
+            setError(msg);
+            console.error('Error starting plan:', err);
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -49,11 +40,11 @@ function FullWorkoutPlanModalComponent({ plan, onClose }) {
         <div className="workout-modal-overlay" onClick={onClose}>
             <div className="workout-modal-content" onClick={(e) => e.stopPropagation()}>
                 <button className="workout-modal-close" onClick={onClose}>✕</button>
-                
+
                 <h2>{plan.name}</h2>
                 <p className="modal-description">{plan.description}</p>
                 <p className="modal-duration">Duration: {plan.durationWeeks} weeks</p>
-                
+
                 <div className="weekly-schedule">
                     <h3>Weekly Schedule</h3>
                     <div className="days-grid">
@@ -88,12 +79,20 @@ function FullWorkoutPlanModalComponent({ plan, onClose }) {
                         })}
                     </div>
                 </div>
-                
+
+                {error && (
+                    <div className="error-container" style={{padding: '8px'}}>
+                        <p>{error}</p>
+                    </div>
+                )}
+
                 <div className="modal-actions">
-                    <button 
-                    className="start-plan-btn"
-                    onClick={startWorkoutPlan}>
-                        Start This Plan
+                    <button
+                        className="start-plan-btn"
+                        onClick={startWorkoutPlan}
+                        disabled={loading}
+                    >
+                        {loading ? 'Starting...' : 'Start This Plan'}
                     </button>
                 </div>
             </div>

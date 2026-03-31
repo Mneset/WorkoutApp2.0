@@ -1,45 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth0 } from "@auth0/auth0-react";
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import api from '../api';
 
-const SesssionRedirectComponent = ({ onSessionStart }) => {
-    const { getAccessTokenSilently, user } = useAuth0();
+const SesssionRedirectComponent = () => {
+    const { getToken, user } = useAuth();
+    const { handleSessionStarted } = useSession();
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-     const handleStartSession = async (e) => {
+    const handleStartSession = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError(null);
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                    scope: "openid start:session",
-                },
+            const accessToken = await getToken();
+            const response = await api.post('/session', { userId: user.sub }, {
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
-
-            console.log('user.sub:', user.sub);
-            console.log("Access Token:", accessToken);
-            
-            const response = await api.post('/session', {userId: user.sub}, {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`
-                    }
-                });
-
-            console.log("Session started:", response);
-            alert("Session started!");
-            onSessionStart(response.data.sessionLogId);
-            navigate("/new-session")
-        } catch (error) {
-            console.error("Error starting session:", error);      
+            handleSessionStarted(response.data.data.result.sessionLogId);
+            navigate("/new-session");
+        } catch (err) {
+            setError('Failed to start session');
+            console.error("Error starting session:", err);
+        } finally {
+            setLoading(false);
         }
     }
 
     return (
         <div className='session-redirect-container'>
             <h2>Start a new session</h2>
+            {error && <p className="error-container" style={{padding: '8px', fontSize: '14px'}}>{error}</p>}
             <form className='start-session-form' onSubmit={handleStartSession}>
-                <button type="submit">Start session</button>
+                <button type="submit" disabled={loading}>
+                    {loading ? 'Starting...' : 'Start session'}
+                </button>
             </form>
         </div>
     )

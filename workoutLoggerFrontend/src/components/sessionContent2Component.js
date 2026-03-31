@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import api from '../api';
 import ExerciseListComponent from './exerciseListComponent';
 
 
-function SessionContent2Component( {sessionLogId, onSessionEnd }) {
+function SessionContent2Component({ sessionLogId }) {
     const [exerciseId, setExerciseId] = useState();
     const [setId, setSetId] = useState(1);
     const [reps, setReps] = useState(10);
@@ -13,97 +14,73 @@ function SessionContent2Component( {sessionLogId, onSessionEnd }) {
     const [session, setSession] = useState(null);
     const [exercises, setExercises] = useState([]);
     const [sets, setSets] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedExerciseName, setSelectedExerciseName] = useState('')
+    const [selectedExerciseName, setSelectedExerciseName] = useState('');
     const [showAddExerciseForm, setShowAddExerciseForm] = useState(false);
     const [editTableLogs, setEditTableLogs] = useState([]);
     const [sessionName, setSessionName] = useState('');
     const [modal, setModal] = useState(false);
-    const [tempIdCounter, setTempIdCounter] = useState(10000)
- 
-    const { getAccessTokenSilently, user } = useAuth0();
+    const [tempIdCounter, setTempIdCounter] = useState(10000);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    const { getToken } = useAuth();
+    const { handleSessionEnded } = useSession();
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const accessToken = await getAccessTokenSilently({
-                    authorizationParams: {
-                        audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                        scope: "openid start:session",
-                    },
-                });
+                const accessToken = await getToken();
 
                 const response = await api.get('/exercise-log', {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                    },
+                    headers: { Authorization: `Bearer ${accessToken}` },
                 });
-
-                setExercises(response.data.exercises);
+                setExercises(response.data.data.result);
 
                 const setsResponse = await api.get('/sets', {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                    },
+                    headers: { Authorization: `Bearer ${accessToken}` },
                 });
-
-                setSets(setsResponse.data.setTypes);
-            
-            } catch (error) {
-                console.error('Error fetching data:', error);
+                setSets(setsResponse.data.data.result);
+            } catch (err) {
+                console.error('Error fetching data:', err);
             }
         };
 
         fetchData();
-    }, [getAccessTokenSilently]);
+    }, [getToken]);
 
     const toggleModal = () => {
-            setModal(!modal);
-        }
+        setModal(!modal);
+    }
 
-    const handleGetSession = async (e) => {
+    const handleGetSession = async () => {
+        setLoading(true);
+        setError(null);
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: `https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/`,
-                    scope: "openid start:session",
-                },
-            }); 
-
+            const accessToken = await getToken();
             const response = await api.get(`/session/${sessionLogId}`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`
-                }
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
-
-            setSession(response.data.session);
-            setEditTableLogs(response.data.session.ExerciseLogs);
-        } catch (error) {
-            console.log('Error getting current session:', error.response ? error.response.data : error.message);
+            setSession(response.data.data.result);
+            setEditTableLogs(response.data.data.result.ExerciseLogs);
+        } catch (err) {
+            setError('Failed to load session');
+            console.error('Error getting current session:', err);
+        } finally {
+            setLoading(false);
         }
     }
 
     const handleAddExercise = async (id, exerciseName) => {
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                    scope: "openid start:session",
-                },
-            });
-
+            const accessToken = await getToken();
             const response = await api.post('/exercise-log', {exerciseId: id, setId, reps, weight, notes, sessionLogId}, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`
-                }
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
 
-            console.log("Exercise added to session:", response.data);
-            console.log("Exercise added to session:", response.data.exerciseLog.id);
-
-            
-            const newLog = response.data.log || {
-                id: response.data.exerciseLog.id,
+            const newLog = response.data.data.result;
+            const logEntry = {
+                id: newLog.id,
                 exerciseId: id,
                 setId,
                 reps,
@@ -114,76 +91,50 @@ function SessionContent2Component( {sessionLogId, onSessionEnd }) {
             };
 
             setTempIdCounter(prev => prev - 1);
-            setEditTableLogs(prevLogs => [...prevLogs, newLog]);
-
-        } catch (error) {
-            console.log("Error adding exercise to session:", error);
+            setEditTableLogs(prevLogs => [...prevLogs, logEntry]);
+        } catch (err) {
+            alert('Failed to add exercise. Please try again.');
+            console.error("Error adding exercise to session:", err);
         }
     }
 
     const handleEndSession = async () => {
-        const notes = window.prompt("Please provide notes for the session");
-        if (notes === null) {
-            return
-        }
-        console.log("Notes for session:", notes);
+        const sessionNotes = window.prompt("Please provide notes for the session");
+        if (sessionNotes === null) return;
 
-        await saveAllEdits();
-        
+        setSaving(true);
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: `https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/`,
-                    scope: "openid start:session",
-                },
+            await saveAllEdits();
+            const accessToken = await getToken();
+            await api.put(`/session/${sessionLogId}`, {notes: sessionNotes, updatedLogs: editTableLogs, name: sessionName}, {
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
-
-            const response = await api.put(`/session/${sessionLogId}`, {notes, updatedLogs: editTableLogs, name: sessionName}, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`
-                }
-            });
-            
-            console.log("Session ended:", response.data);
-            alert("Session ended!");
-            onSessionEnd()
+            handleSessionEnded();
             window.location.href = '/';
-        } catch (error) {
-            console.log("Error ending session:", error);      
+        } catch (err) {
+            alert('Failed to end session. Please try again.');
+            console.error("Error ending session:", err);
+        } finally {
+            setSaving(false);
         }
     }
 
     const handleCancelSession = async (sessionLogId) => {
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                    scope: "openid start:session",
-                },
+            const accessToken = await getToken();
+            await api.delete(`/session/${sessionLogId}`, {
+                headers: { Authorization: `Bearer ${accessToken}` },
             });
-
-            console.log("Access Token:", accessToken);
-
-            const response = await api.delete(`/session/${sessionLogId}`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`
-                },
-            });
-            console.log("Session deleted:", response.data);
-            alert("Session was canceled successfully!");
+            handleSessionEnded();
             window.location.href = '/';
-        } catch (error) {
-            console.error("Error deleting session:", error);         
+        } catch (err) {
+            alert('Failed to cancel session. Please try again.');
+            console.error("Error deleting session:", err);
         }
     }
 
     const saveAllEdits = async () => {
-        const accessToken = await getAccessTokenSilently({
-            authorizationParams: {
-                audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                scope: "openid start:session",
-            },
-        });
+        const accessToken = await getToken();
         for (const log of editTableLogs) {
             if (log.id) {
                 await api.put(`/exercise-log/${log.id}`, {
@@ -191,64 +142,48 @@ function SessionContent2Component( {sessionLogId, onSessionEnd }) {
                     weight: log.weight,
                     notes: log.notes,
                 }, {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`
-                    }
+                    headers: { Authorization: `Bearer ${accessToken}` }
                 });
-                console.log("Updated log:", log.id, log.reps, log.weight, log.notes);
-                
             }
         }
     };
 
- const handleAddSet = async (exerciseName) => {
+    const handleAddSet = async (exerciseName) => {
+        if (document.activeElement) document.activeElement.blur();
+        const logsForExercise = editTableLogs.filter(log => log.Exercise.name === exerciseName);
+        if (logsForExercise.length === 0) return;
 
-    if (document.activeElement) document.activeElement.blur();
-    // Find all logs for this exercise
-    const logsForExercise = editTableLogs.filter(log => log.Exercise.name === exerciseName);
-    if (logsForExercise.length === 0) return;
+        const lastLog = logsForExercise[logsForExercise.length - 1];
 
-    // Get the last log for this exercise
-    const lastLog = logsForExercise[logsForExercise.length - 1];
+        try {
+            await saveAllEdits();
+            const accessToken = await getToken();
+            const response = await api.post('/exercise-log', {
+                exerciseId: lastLog.exerciseId,
+                setId: lastLog.setId,
+                reps: lastLog.reps,
+                weight: lastLog.weight,
+                notes: lastLog.notes,
+                sessionLogId
+            }, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
 
-    try {
-        await saveAllEdits();
+            const newLog = {
+                ...lastLog,
+                id: response.data.data.result.id,
+                setId: lastLog.setId + 1,
+            };
+            setEditTableLogs(prevLogs => [...prevLogs, newLog]);
+        } catch (err) {
+            alert('Failed to add set. Please try again.');
+            console.error("Error adding set:", err);
+        }
+    };
 
-        const accessToken = await getAccessTokenSilently({
-            authorizationParams: {
-                audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                scope: "openid start:session",
-            },
-        });
-
-        // Send a POST request to create a new log with the same values as the last log
-        const response = await api.post('/exercise-log', {
-            exerciseId: lastLog.exerciseId,
-            setId: lastLog.setId,
-            reps: lastLog.reps,
-            weight: lastLog.weight,
-            notes: lastLog.notes,
-            sessionLogId
-        }, {
-            headers: {
-                Authorization: `Bearer ${accessToken}`
-            }
-        });
-
-        const newLog = response.data.log || {
-            ...lastLog,
-            id: response.data.exerciseLog.id,
-            setId: lastLog.setId + 1,
-        };
-        setEditTableLogs(prevLogs => [...prevLogs, newLog]);
-    } catch (error) {
-        console.error("Error adding set:", error);
+    const deleteExercise = async (sessionId) => {
+        // TODO: implement
     }
-};
-
-const deleteExercise = async (sessionId) => {
-
-}
 
     useEffect(() => {
         handleGetSession();
@@ -260,9 +195,27 @@ const deleteExercise = async (sessionId) => {
         }
     }, [session]);
 
+    if (loading) {
+        return (
+            <div className="loading-container">
+                <div className="spinner"></div>
+                <p>Loading session...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="error-container">
+                <p>{error}</p>
+                <button onClick={handleGetSession}>Retry</button>
+            </div>
+        );
+    }
+
     return (
         <div>
-        <div id='session-container'> 
+        <div id='session-container'>
         {session && (
                 <div key={session.id}>
                     <table>
@@ -278,7 +231,7 @@ const deleteExercise = async (sessionId) => {
                                         value={sessionName}
                                         onChange={e => setSessionName(e.target.value)}
                                         style={{ width: '100%' }}
-                                    />     
+                                    />
                                 </th>
                             </tr>
                         </thead>
@@ -293,7 +246,7 @@ const deleteExercise = async (sessionId) => {
                             ).map(([exerciseName, logs]) => (
                                 <tbody key={exerciseName}>
                                     <tr>
-                                        <td colSpan="4"  className='exercise-name' style={{ fontWeight: 'bold', textAlign: 'center'}}>
+                                        <td colSpan="4" className='exercise-name' style={{ fontWeight: 'bold', textAlign: 'center'}}>
                                             <span>{exerciseName}</span>
                                             <button
                                                 className='delete-exercise-btn'
@@ -332,21 +285,18 @@ const deleteExercise = async (sessionId) => {
                                                     }}
                                                     onBlur={async (e) => {
                                                         if (log.id) {
-                                                            const accessToken = await getAccessTokenSilently({
-                                                                authorizationParams: {
-                                                                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                                                                    scope: "openid start:session",
-                                                                },
-                                                            });
-                                                            await api.put(`/exercise-log/${log.id}`, {
-                                                                reps: e.target.value,
-                                                                weight: log.weight,
-                                                                notes: log.notes,
-                                                            }, {
-                                                                headers: {
-                                                                    Authorization: `Bearer ${accessToken}`
-                                                                }
-                                                            });
+                                                            try {
+                                                                const accessToken = await getToken();
+                                                                await api.put(`/exercise-log/${log.id}`, {
+                                                                    reps: e.target.value,
+                                                                    weight: log.weight,
+                                                                    notes: log.notes,
+                                                                }, {
+                                                                    headers: { Authorization: `Bearer ${accessToken}` }
+                                                                });
+                                                            } catch (err) {
+                                                                console.error('Failed to save:', err);
+                                                            }
                                                         }
                                                     }}
                                                 />
@@ -357,9 +307,7 @@ const deleteExercise = async (sessionId) => {
                                                     value={log.weight}
                                                     onChange={e => {
                                                         const updatedLogs = [...editTableLogs];
-                                                        const globalIndex = editTableLogs.findIndex(
-                                                            l => l.id === log.id
-                                                        );
+                                                        const globalIndex = editTableLogs.findIndex(l => l.id === log.id);
                                                         updatedLogs[globalIndex] = {
                                                             ...updatedLogs[globalIndex],
                                                             weight: e.target.value
@@ -374,9 +322,7 @@ const deleteExercise = async (sessionId) => {
                                                     value={log.notes || ""}
                                                     onChange={e => {
                                                         const updatedLogs = [...editTableLogs];
-                                                        const globalIndex = editTableLogs.findIndex(
-                                                            l => l.id === log.id
-                                                        );
+                                                        const globalIndex = editTableLogs.findIndex(l => l.id === log.id);
                                                         updatedLogs[globalIndex] = {
                                                             ...updatedLogs[globalIndex],
                                                             notes: e.target.value
@@ -389,20 +335,14 @@ const deleteExercise = async (sessionId) => {
                                     ))}
                                     <tr>
                                         <td colSpan="4">
-                                            <button 
-                                            className='add-button'
-                                            onClick={() => handleAddSet(exerciseName)}
-                                            >
+                                            <button className='add-button' onClick={() => handleAddSet(exerciseName)}>
                                                 Add set
                                             </button>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td colSpan="4">
-                                            <button 
-                                            className='add-btn'
-                                            onClick={() => toggleModal()}
-                                            >
+                                            <button className='add-btn' onClick={() => toggleModal()}>
                                                 Add new Exercise
                                             </button>
                                         </td>
@@ -416,10 +356,7 @@ const deleteExercise = async (sessionId) => {
                                 </tr>
                                 <tr>
                                     <td colSpan="4">
-                                        <button 
-                                        className='add-btn'
-                                        onClick={() => toggleModal()}
-                                        >
+                                        <button className='add-btn' onClick={() => toggleModal()}>
                                             Add Exercise
                                         </button>
                                     </td>
@@ -428,36 +365,37 @@ const deleteExercise = async (sessionId) => {
                         )}
                     </table>
                     <div className='button-group'>
-                    <button 
+                        <button
                             className='session-button'
                             onClick={() => handleCancelSession(session.id)}
                         >
                             Cancel
                         </button>
-                    <button
+                        <button
                             type="button"
                             className='session-button'
                             onClick={handleEndSession}
+                            disabled={saving}
                         >
-                            End session
+                            {saving ? 'Saving...' : 'End session'}
                         </button>
                     </div>
-                </div>     
+                </div>
+            )}
+         </div>
+          {modal && (
+                    <ExerciseListComponent
+                        exercises={exercises}
+                        onClose={toggleModal}
+                        onSelect={exercise => {
+                            setExerciseId(exercise.id);
+                            setSelectedExerciseName(exercise.name);
+                            handleAddExercise(exercise.id, exercise.name);
+                            setShowAddExerciseForm(true);
+                        }}
+                    />
                 )}
-             </div>
-              {modal && (
-                        <ExerciseListComponent
-                            exercises={exercises}
-                            onClose={toggleModal}
-                            onSelect={exercise => {
-                                setExerciseId(exercise.id);
-                                setSelectedExerciseName(exercise.name);
-                                handleAddExercise(exercise.id, exercise.name);
-                                setShowAddExerciseForm(true);
-                            }}
-                        />
-                    )}
-        </div>                 
+        </div>
     )
 }
 

@@ -1,11 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from '../context/AuthContext';
 
 function NavbarComponent() {
 
-  const { loginWithRedirect, logout, isAuthenticated } = useAuth0();
-
+  const { loginWithRedirect, logout, isAuthenticated } = useAuth();
 
   return (
     <nav id="navbar" className="navbar navbar-expand-lg navbar-light bg-light position-fixed w-100 fixed-top">
@@ -44,7 +43,7 @@ function NavbarComponent() {
                 >
                   Login
                 </button>
-              )}         
+              )}
             </li>
           </ul>
         </div>

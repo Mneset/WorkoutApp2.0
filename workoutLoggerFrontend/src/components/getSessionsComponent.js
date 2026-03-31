@@ -1,29 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
 function GetSessionsComponent() {
     const [sessions, setSessions] = useState([]);
-    const { getAccessTokenSilently, user } = useAuth0();
-    
-    const handleGetSessions = async (e) => {
+    const { getToken, user } = useAuth();
+
+    const handleGetSessions = async () => {
         try {
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                    scope: "openid start:session",
-                },
-            }); 
+            const accessToken = await getToken();
 
-            console.log("Access Token:", accessToken);
-
-            const response = await api.get('/session-history', { params: { userId: user.sub }, 
+            const response = await api.get('/session', { params: { userId: user.sub },
                 headers: {
                     Authorization: `Bearer ${accessToken}`
                 },
             });
-                setSessions(response.data.sessions);
-            console.log('Sessions for user:', response.data.sessions);
+            setSessions(response.data.data.result);
         } catch (error) {
             console.log('Error getting sessions:', error.response ? error.response.data : error.message);
         }
@@ -31,27 +23,17 @@ function GetSessionsComponent() {
 
     const deleteSession = async (sessionLogId) => {
         try {
-            console.log("Sessions:", sessions);
+            const accessToken = await getToken();
 
-            const accessToken = await getAccessTokenSilently({
-                authorizationParams: {
-                    audience: 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com/api/v2/',
-                    scope: "openid start:session",
-                },
-            });
-
-            console.log("Access Token:", accessToken);
-
-            const response = await api.delete(`/session-history/${sessionLogId}`, {
+            await api.delete(`/session/${sessionLogId}`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`
                 },
             });
-            console.log("Session deleted:", response.data);
             alert("Session deleted successfully!");
             handleGetSessions();
         } catch (error) {
-            console.error("Error deleting session:", error);         
+            console.error("Error deleting session:", error);
         }
     }
 
@@ -60,7 +42,7 @@ function GetSessionsComponent() {
     }, []);
 
     return (
-        <div id='sessions-container'> 
+        <div id='sessions-container'>
             { sessions && sessions.length > 0 ? (
                 sessions.map((session) => (
                     <div key={session.id}>
@@ -77,7 +59,7 @@ function GetSessionsComponent() {
                             <thead>
                                 <tr>
                                     <th colSpan="4" style={{ fontWeight: 'bold', textAlign: 'center'}}>
-                                        {session.name || 'Untitled Session'}  
+                                        {session.name || 'Untitled Session'}
                                     </th>
                                 </tr>
                             </thead>
@@ -122,12 +104,10 @@ function GetSessionsComponent() {
                         </table>
                         <div className='button-group'>
                         <button className='session-button' onClick={() => {
-                            console.log("Navigating to session with ID:", session.id);
                             window.location.href = `/new-session?sessionLogId=${session.id}`;
                         }}
                             >Edit</button>
                         <button className='session-button' onClick={() => {
-                            console.log("Deleting session with ID:", session.id);
                             deleteSession(session.id)}
                         }
                             >Delete</button>
