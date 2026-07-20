@@ -15,8 +15,8 @@ root.render(
       clientId={process.env.REACT_APP_ACCESS_CLIENT_ID}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        audience: `https://${process.env.REACT_APP_ACCESS_DOMAIN}/api/v2/`,
-        scope: 'openid profile email read:current_user update:current_user_metadata'
+        audience: process.env.REACT_APP_API_AUDIENCE,
+        scope: 'openid profile email start:session'
       }}
     >
       <AuthProvider>

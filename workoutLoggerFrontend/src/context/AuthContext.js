@@ -9,8 +9,8 @@ export function AuthProvider({ children }) {
     const getToken = useCallback(async () => {
         return await getAccessTokenSilently({
             authorizationParams: {
-                audience: `https://${process.env.REACT_APP_ACCESS_DOMAIN}/api/v2/`,
-                scope: 'openid profile email read:current_user update:current_user_metadata start:session',
+                audience: process.env.REACT_APP_API_AUDIENCE,
+                scope: 'openid profile email start:session',
             },
         });
     }, [getAccessTokenSilently]);

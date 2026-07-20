@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import api from '../api';
@@ -26,6 +27,7 @@ function SessionContent2Component({ sessionLogId }) {
 
     const { getToken } = useAuth();
     const { handleSessionEnded } = useSession();
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -110,7 +112,7 @@ function SessionContent2Component({ sessionLogId }) {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
             handleSessionEnded();
-            window.location.href = '/';
+            navigate('/');
         } catch (err) {
             alert('Failed to end session. Please try again.');
             console.error("Error ending session:", err);
@@ -126,7 +128,7 @@ function SessionContent2Component({ sessionLogId }) {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
             handleSessionEnded();
-            window.location.href = '/';
+            navigate('/');
         } catch (err) {
             alert('Failed to cancel session. Please try again.');
             console.error("Error deleting session:", err);

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
 function GetSessionsComponent() {
     const [sessions, setSessions] = useState([]);
     const { getToken, user } = useAuth();
+    const navigate = useNavigate();
 
     const handleGetSessions = async () => {
         try {
@@ -104,7 +106,7 @@ function GetSessionsComponent() {
                         </table>
                         <div className='button-group'>
                         <button className='session-button' onClick={() => {
-                            window.location.href = `/new-session?sessionLogId=${session.id}`;
+                            navigate(`/new-session?sessionLogId=${session.id}`);
                         }}
                             >Edit</button>
                         <button className='session-button' onClick={() => {
