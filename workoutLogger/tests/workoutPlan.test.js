@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 process.env.NODE_ENV = 'test';
 process.env.AUTH_AUDIENCE = 'http://localhost:3000/api/v1';
 process.env.AUTH_ISSUER_BASE_URL = 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com';
@@ -14,8 +16,8 @@ async function getToken() {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-            "client_id":"Gp8hnNgSEgOOYjmuKnt8kYtv0H8IFyih",
-            "client_secret":"RqJm-T84wJzbazCew8svFpnBcvzUXcAt-ZTSFaGmTH_uV8T12F8remcb6HO20Ipg",
+            "client_id": process.env.AUTH0_TEST_CLIENT_ID,
+            "client_secret": process.env.AUTH0_TEST_CLIENT_SECRET,
             "audience": "http://localhost:3000/api/v1",
             "grant_type":"client_credentials"
             }),
@@ -57,8 +59,8 @@ describe('Workout Plan tests', () => {
         //console.log(response.body);
         
         expect(response.body.status).toBe('success');
-        expect(response.body.statuscode).toBe(200);
-        expect(response.body.data.result).toBe('Workout plan created successfully');
+        expect(response.body.statuscode).toBe(201);
+        expect(response.body.data.result).toHaveProperty('name', name);
         
     })
 
@@ -76,7 +78,7 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(400);
         expect(response.body.status).toBe('error');
         expect(response.body.statuscode).toBe(400);
-        expect(response.body.data.result).toBe('Missing required fields: name, description, or durationWeeks');
+        expect(response.body.data.message).toBe('Validation failed');
     })
 
     test('Fetching all workout plans should result in a 200 and return plans', async () => {
@@ -108,7 +110,7 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(404);    
         expect(response.body.status).toBe('error');
         expect(response.body.statuscode).toBe(404);
-        expect(response.body.data.result).toBe('No workout plans found');
+        expect(response.body.data.message).toBe('No workout plans found');
     })
 
     test('Fetching a workout plan by ID that does not exist should result in a 404 and a message', async () => {
@@ -121,7 +123,7 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(404);
         expect(response.body.status).toBe('error');
         expect(response.body.statuscode).toBe(404);
-        expect(response.body.data.result).toBe('No workout plan found');
+        expect(response.body.data.message).toBe('No workout plan found');
     })
 
     test('Fetching a workout plan by ID that exists should result in a 200 and return the plan', async () => {
@@ -138,8 +140,8 @@ describe('Workout Plan tests', () => {
         //console.log(response.body);
         
         expect(response.body.status).toBe('success');
-        expect(response.body.statuscode).toBe(200);
-        expect(response.body.data.result).toBe('Workout plan created successfully');
+        expect(response.body.statuscode).toBe(201);
+        expect(response.body.data.result).toHaveProperty('name', name);
 
         const getResponse = await request(app)
             .get('/api/v1/workout-plan/3')
@@ -191,7 +193,7 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(404);
         expect(response.body.status).toBe('error');
         expect(response.body.statuscode).toBe(404);
-        expect(response.body.data.result).toBe('No workout plan found');
+        expect(response.body.data.message).toBe('No workout plan found');
     })
 
     test('Updating a workout plan with no data should result in a 400 and a message', async () => {
@@ -208,7 +210,7 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(400);
         expect(response.body.status).toBe('error');
         expect(response.body.statuscode).toBe(400);
-        expect(response.body.data.result).toBe('No data provided for update');
+        expect(response.body.data.message).toBe('Validation failed');
     })
 
     test('Deleting a workout plan that exists should result in a 200 and a message', async () => {
@@ -236,7 +238,7 @@ describe('Workout Plan tests', () => {
         expect(response.status).toBe(404);
         expect(response.body.status).toBe('error');
         expect(response.body.statuscode).toBe(404);
-        expect(response.body.data.result).toBe('No workout plan found');
+        expect(response.body.data.message).toBe('No workout plan found');
     })
 });
 

@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: false,
             references: {
-                model: 'sessionTemplate',
+                model: 'sessiontemplate',
                 key: 'id'
             }
         },

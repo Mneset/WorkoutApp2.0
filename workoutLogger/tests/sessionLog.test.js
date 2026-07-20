@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 process.env.NODE_ENV = 'test';
 process.env.AUTH_AUDIENCE = 'http://localhost:3000/api/v1';
 process.env.AUTH_ISSUER_BASE_URL = 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com';
@@ -14,8 +16,8 @@ async function getToken() {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-            "client_id":"Gp8hnNgSEgOOYjmuKnt8kYtv0H8IFyih",
-            "client_secret":"RqJm-T84wJzbazCew8svFpnBcvzUXcAt-ZTSFaGmTH_uV8T12F8remcb6HO20Ipg",
+            "client_id": process.env.AUTH0_TEST_CLIENT_ID,
+            "client_secret": process.env.AUTH0_TEST_CLIENT_SECRET,
             "audience": "http://localhost:3000/api/v1",
             "grant_type":"client_credentials"
             }),
@@ -56,7 +58,7 @@ describe('Session log tests', () => {
 
         //console.log(planResponse.body);
         
-        expect(planResponse.statusCode).toBe(200);
+        expect(planResponse.statusCode).toBe(201);
 
         const sessionData = {
             name: "Chest Day",
@@ -72,7 +74,7 @@ describe('Session log tests', () => {
           
         //console.log(sessionResponse.body);
 
-        expect(sessionResponse.statusCode).toBe(200)
+        expect(sessionResponse.statusCode).toBe(201)
 
         const exerciseData = {
             sessionTemplateId: 1,
@@ -90,7 +92,7 @@ describe('Session log tests', () => {
 
         //console.log(exerciseResponse.body);
 
-        expect(exerciseResponse.statusCode).toBe(200);      
+        expect(exerciseResponse.statusCode).toBe(201);      
 
         const updateInfo = {
             workoutPlanId: 2,
@@ -107,7 +109,7 @@ describe('Session log tests', () => {
         expect(userPlanResponse.statusCode).toBe(200)
 
         const sessionInfo = {
-            userId: 1
+            userId: '1'
         }
         
         const response = await request(app)
@@ -122,7 +124,7 @@ describe('Session log tests', () => {
 
     test('Creating a session log while providing a session template id for the users workout plan will turn that session temaplate into a session log and result in a 200 ', async () => {
          const sessionInfo = {
-            userId: 1,
+            userId: '1',
             sessionTemplateId: 1
         }
         

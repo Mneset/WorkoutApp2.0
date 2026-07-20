@@ -11,7 +11,7 @@ const validate = (schema) => (req, res, next) => {
                 statuscode: 400,
                 data: {
                     message: 'Validation failed',
-                    errors: error.errors.map(e => ({
+                    errors: error.issues.map(e => ({
                         field: e.path.join('.'),
                         message: e.message
                     }))
@@ -33,7 +33,7 @@ const validateQuery = (schema) => (req, res, next) => {
                 statuscode: 400,
                 data: {
                     message: 'Validation failed',
-                    errors: error.errors.map(e => ({
+                    errors: error.issues.map(e => ({
                         field: e.path.join('.'),
                         message: e.message
                     }))

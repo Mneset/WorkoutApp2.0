@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 process.env.NODE_ENV = 'test';
 process.env.AUTH_AUDIENCE = 'http://localhost:3000/api/v1';
 process.env.AUTH_ISSUER_BASE_URL = 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com';
@@ -14,8 +16,8 @@ async function getToken() {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-            "client_id":"Gp8hnNgSEgOOYjmuKnt8kYtv0H8IFyih",
-            "client_secret":"RqJm-T84wJzbazCew8svFpnBcvzUXcAt-ZTSFaGmTH_uV8T12F8remcb6HO20Ipg",
+            "client_id": process.env.AUTH0_TEST_CLIENT_ID,
+            "client_secret": process.env.AUTH0_TEST_CLIENT_SECRET,
             "audience": "http://localhost:3000/api/v1",
             "grant_type":"client_credentials"
             }),
@@ -58,8 +60,8 @@ describe('Session template tests', () => {
         //console.log(planResponse.body);
         
         expect(planResponse.body.status).toBe('success');
-        expect(planResponse.body.statuscode).toBe(200);
-        expect(planResponse.body.data.result).toBe('Workout plan created successfully');
+        expect(planResponse.body.statuscode).toBe(201);
+        expect(planResponse.body.data.result).toHaveProperty('name', name);
 
         const sessionData = {
             name: "Chest Day",
@@ -75,7 +77,7 @@ describe('Session template tests', () => {
           
         //console.log(response.body);
 
-        expect(response.statusCode).toBe(200)
+        expect(response.statusCode).toBe(201)
         
     })
 
@@ -128,12 +130,12 @@ describe('Session template tests', () => {
 
         console.log(createResponse.body);
         
-        expect(createResponse.statusCode).toBe(200);
+        expect(createResponse.statusCode).toBe(201);
 
         //console.log(createResponse.body.data.session.id);
         
         const deleteResponse = await request(app)
-            .delete(`/api/v1/session-template/${createResponse.body.data.session.id}`)
+            .delete(`/api/v1/session-template/${createResponse.body.data.result.id}`)
             .set('Authorization', `Bearer ${authToken}`);
         
         //console.log(deleteResponse.body);

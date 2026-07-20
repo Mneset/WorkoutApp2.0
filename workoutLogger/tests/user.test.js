@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 process.env.NODE_ENV = 'test';
 process.env.AUTH_AUDIENCE = 'http://localhost:3000/api/v1';
 process.env.AUTH_ISSUER_BASE_URL = 'https://dev-n8xnfzfw0w26p6nq.us.auth0.com';
@@ -14,8 +16,8 @@ async function getToken() {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-            "client_id":"Gp8hnNgSEgOOYjmuKnt8kYtv0H8IFyih",
-            "client_secret":"RqJm-T84wJzbazCew8svFpnBcvzUXcAt-ZTSFaGmTH_uV8T12F8remcb6HO20Ipg",
+            "client_id": process.env.AUTH0_TEST_CLIENT_ID,
+            "client_secret": process.env.AUTH0_TEST_CLIENT_SECRET,
             "audience": "http://localhost:3000/api/v1",
             "grant_type":"client_credentials"
             }),
@@ -56,7 +58,7 @@ describe('User tests', () => {
 
         //console.log(planResponse.body);
         
-        expect(planResponse.statusCode).toBe(200);
+        expect(planResponse.statusCode).toBe(201);
 
         const sessionData = {
             name: "Chest Day",
@@ -72,7 +74,7 @@ describe('User tests', () => {
           
         //console.log(sessionResponse.body);
 
-        expect(sessionResponse.statusCode).toBe(200)
+        expect(sessionResponse.statusCode).toBe(201)
 
         const exerciseData = {
             sessionTemplateId: 1,
@@ -90,7 +92,7 @@ describe('User tests', () => {
 
         //console.log(exerciseResponse.body);
 
-        expect(exerciseResponse.statusCode).toBe(200);
+        expect(exerciseResponse.statusCode).toBe(201);
 
         const updateInfo = {
             workoutPlanId: 2,

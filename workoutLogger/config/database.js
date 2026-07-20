@@ -2,10 +2,11 @@ const db = require('../models');
 
 async function initializeDb() {
     try {
-        await db.sequelize.sync({ alter: false });
-        console.log('Database initialized');
+        await db.sequelize.authenticate();
+        console.log('Database connected');
     } catch (error) {
-        console.error('Failed to initialize database:', error);
+        console.error('Failed to connect to database:', error);
+        throw error;
     }
 }
 
