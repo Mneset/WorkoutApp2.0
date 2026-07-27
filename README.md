@@ -16,10 +16,10 @@ This version adds structured **workout plans**: you can build a plan out of reus
 
 | Layer | Stack |
 |---|---|
-| Frontend | React 19 (Create React App), React Router, Auth0 SPA SDK |
+| Frontend | React 19 (Vite), React Router, Tailwind CSS, Auth0 SPA SDK |
 | Backend | Node.js + Express, Sequelize ORM, zod validation, JWT validated against Auth0 |
 | Database | MySQL 8.0 |
-| Serving | nginx (serves the built React app, proxies `/api` to the backend) |
+| Serving | nginx (serves the Vite build, proxies `/api` to the backend) |
 
 The API lives under `/api/v1` and every route requires a valid Auth0 access token.
 
@@ -102,16 +102,15 @@ npm start
 Create `workoutLoggerFrontend/.env` first:
 
 ```bash
-PORT=3001
 REACT_APP_ACCESS_DOMAIN=<your-tenant>.us.auth0.com
 REACT_APP_ACCESS_CLIENT_ID=<your Auth0 SPA client id>
 REACT_APP_API_BASE_URL=http://localhost:3000/api/v1
 REACT_APP_API_AUDIENCE=http://localhost:3000/api/v1
 ```
 
-Runs on `http://localhost:3001`. `PORT=3001` matters - CRA defaults to 3000, which collides with the backend, and `CORS_ORIGIN` expects 3001.
+Runs on `http://localhost:3001` (the Vite dev port, set in `vite.config.js`). It must stay off the backend's 3000, and `CORS_ORIGIN` plus the Auth0 callback URLs expect 3001. `npm start` and `npm run dev` both launch Vite.
 
-`REACT_APP_API_AUDIENCE` must match the backend's `AUTH_AUDIENCE` character for character. These values are inlined at build time, so restart the dev server after editing `.env`.
+The frontend is built with Vite but keeps the `REACT_APP_` env prefix (via Vite's `envPrefix`), so the same variable names work in local dev and Docker. `REACT_APP_API_AUDIENCE` must match the backend's `AUTH_AUDIENCE` character for character. These values are inlined at build time, so restart the dev server after editing `.env`.
 
 ### Database scripts
 

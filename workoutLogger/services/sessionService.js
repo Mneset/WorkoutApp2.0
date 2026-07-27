@@ -7,6 +7,7 @@ class SessionService {
         try {
             const sessions = await this.db.SessionLog.findAll({
                 where: { userId: userId },
+                order: [['sessionDateStart', 'DESC'], ['id', 'DESC']],
                 include: [{
                     model: this.db.ExerciseLog,
                     include: [ this.db.Exercise ]

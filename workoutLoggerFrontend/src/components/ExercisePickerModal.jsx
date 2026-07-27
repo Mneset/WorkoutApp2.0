@@ -1,0 +1,118 @@
+import React, { useState, useEffect } from 'react';
+import Card from './Card';
+
+const inputClass =
+  'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
+
+function ExercisePickerModal({ exercises = [], onSelect, onClose }) {
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedMuscle, setSelectedMuscle] = useState('');
+
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
+
+  const filteredExercises = exercises.filter((ex) => {
+    const matchesName = ex.name.toLowerCase().includes(search.toLowerCase());
+
+    const matchesMuscle =
+      selectedMuscle === '' ||
+      (ex.TargetMuscles &&
+        ex.TargetMuscles.some(
+          (muscle) => muscle.name.toLowerCase() === selectedMuscle.toLowerCase()
+        ));
+
+    return matchesName && matchesMuscle;
+  });
+
+  // Get unique target muscles for the dropdown
+  const allTargetMuscles = exercises.reduce((muscles, ex) => {
+    if (ex.TargetMuscles) {
+      ex.TargetMuscles.forEach((muscle) => {
+        if (!muscles.some((m) => m.name === muscle.name)) {
+          muscles.push(muscle);
+        }
+      });
+    }
+    return muscles;
+  }, []);
+
+  const handleSelect = (ex) => {
+    setSelectedId(ex.id);
+    onSelect(ex);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-100 grid place-items-center bg-[rgba(28,26,23,0.45)] p-6"
+      onClick={onClose}
+    >
+      <Card
+        className="w-full max-w-lg max-h-[85vh] overflow-y-auto p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg">Select an exercise</h2>
+          <button
+            className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mb-4 flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="Search exercises..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={inputClass}
+          />
+          <select
+            value={selectedMuscle}
+            onChange={(e) => setSelectedMuscle(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">All Target Muscles</option>
+            {allTargetMuscles.map((muscle) => (
+              <option key={muscle.id} value={muscle.name}>
+                {muscle.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          {filteredExercises.map((ex) => (
+            <div
+              key={ex.id}
+              onClick={() => handleSelect(ex)}
+              className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg border px-3.5 py-2.5 hover:border-clay hover:bg-clay-tint ${
+                ex.id === selectedId ? 'border-clay bg-clay-tint' : 'border-line'
+              }`}
+            >
+              <span className="text-sm font-medium">{ex.name}</span>
+              {ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
+                <span className="text-xs text-muted">
+                  {ex.TargetMuscles.map((m) => m.name).join(', ')}
+                </span>
+              )}
+            </div>
+          ))}
+          {filteredExercises.length === 0 && (
+            <div className="py-8 text-center text-sm text-muted">No exercises found.</div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export default ExercisePickerModal;
