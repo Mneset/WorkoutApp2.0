@@ -4,11 +4,19 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 
-export default function FullPlanModal({ plan, onClose }) {
+export default function FullPlanModal({ plan, activePlanId, onClose, onPlanChange }) {
   const { getToken, user } = useAuth();
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const toDateInput = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const [startDate, setStartDate] = useState(() => toDateInput(new Date()));
 
   const sessionsByDay = {};
   if (plan.SessionTemplates) {
@@ -18,17 +26,21 @@ export default function FullPlanModal({ plan, onClose }) {
   }
 
   const startWorkoutPlan = async () => {
+    if (!startDate) {
+      setError('Please choose a start date');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const accessToken = await getToken();
-      const today = new Date().toISOString().split('T')[0];
 
       await api.put(
         `/users/${user.sub}`,
-        { workoutPlanId: plan.id, startDate: today },
+        { workoutPlanId: plan.id, startDate },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
+      onPlanChange?.();
       onClose();
     } catch (err) {
       const msg = err.response?.data?.data?.message || 'Failed to start plan';
@@ -38,6 +50,29 @@ export default function FullPlanModal({ plan, onClose }) {
       setLoading(false);
     }
   };
+
+  const quitWorkoutPlan = async () => {
+    if (!window.confirm('Quit your active plan?')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const accessToken = await getToken();
+      await api.delete('/users/plan', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      onPlanChange?.();
+      onClose();
+    } catch (err) {
+      const msg = err.response?.data?.data?.message || 'Failed to quit plan';
+      setError(msg);
+      console.error('Error quitting plan:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isActive = activePlanId != null && plan.id === activePlanId;
+  const hasActivePlan = activePlanId != null;
 
   return (
     <div
@@ -93,15 +128,51 @@ export default function FullPlanModal({ plan, onClose }) {
           </div>
         </div>
 
+        {isActive ? (
+          <div className="mt-6 rounded-xl border border-clay-tintborder bg-clay-tint px-4 py-3 text-sm text-clay-ink">
+            This is your active plan.
+          </div>
+        ) : hasActivePlan ? (
+          <div className="mt-6 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
+            You already have an active plan. Quit it first to start this one.
+          </div>
+        ) : (
+          <div className="mt-6">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+              Start date
+            </span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint"
+            />
+          </div>
+        )}
+
         {error && (
           <div className="mt-4 rounded-xl border border-line bg-clay-tint px-4 py-3 text-sm text-danger">
             {error}
           </div>
         )}
 
-        <Button className="mt-4 w-full" onClick={startWorkoutPlan} disabled={loading}>
-          {loading ? 'Starting…' : 'Start This Plan'}
-        </Button>
+        {isActive ? (
+          <button
+            onClick={quitWorkoutPlan}
+            disabled={loading}
+            className="mt-4 w-full rounded-lg bg-danger px-5 py-3 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-55"
+          >
+            {loading ? 'Ending…' : 'Quit plan'}
+          </button>
+        ) : (
+          <Button
+            className="mt-4 w-full"
+            onClick={startWorkoutPlan}
+            disabled={loading || hasActivePlan}
+          >
+            {loading ? 'Starting…' : 'Start This Plan'}
+          </Button>
+        )}
       </Card>
     </div>
   );

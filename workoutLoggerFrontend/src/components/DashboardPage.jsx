@@ -12,6 +12,100 @@ function greetingFor(hour) {
   return 'Good evening';
 }
 
+function startOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function startOfWeek(date) {
+  const x = startOfDay(date);
+  const dow = (x.getDay() + 6) % 7; // Mon=0
+  x.setDate(x.getDate() - dow);
+  return x;
+}
+
+// Derive the four dashboard stat tiles from the loaded sessions.
+function computeStats(sessions) {
+  const weekStart = startOfWeek(new Date());
+  let thisWeek = 0;
+  let weekVolume = 0;
+  let durationSum = 0;
+  let durationCount = 0;
+  let best = null;
+
+  for (const s of sessions || []) {
+    const start = s.sessionDateStart ? new Date(s.sessionDateStart) : null;
+    const logs = Array.isArray(s.ExerciseLogs) ? s.ExerciseLogs : [];
+
+    if (start && start >= weekStart) {
+      thisWeek += 1;
+      for (const l of logs) {
+        weekVolume += (Number(l.reps) || 0) * (Number(l.weight) || 0);
+      }
+    }
+
+    if (start && s.sessionDateEnd) {
+      const mins = (new Date(s.sessionDateEnd) - start) / 60000;
+      if (mins > 0 && mins < 24 * 60) {
+        durationSum += mins;
+        durationCount += 1;
+      }
+    }
+
+    for (const l of logs) {
+      const w = Number(l.weight) || 0;
+      if (w > 0 && (!best || w > best.weight)) {
+        best = { weight: w, name: l.Exercise?.name };
+      }
+    }
+  }
+
+  return {
+    thisWeek,
+    weekVolume,
+    avgSession: durationCount ? Math.round(durationSum / durationCount) : null,
+    best,
+  };
+}
+
+// Parse a date-only value to LOCAL midnight, avoiding a UTC-shift off-by-one.
+function parseLocalDate(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return startOfDay(new Date(value));
+}
+
+// Next scheduled session from the active plan's weekly template (dayOffset: Mon=0..Sun=6),
+// never earlier than the plan's start date.
+function nextSessionFrom(plan) {
+  const templates = plan?.WorkoutPlan?.SessionTemplates;
+  if (!Array.isArray(templates) || templates.length === 0) return null;
+
+  const today = startOfDay(new Date());
+  const start = parseLocalDate(plan?.planStartDate);
+  const from = start && start > today ? start : today; // never before the plan begins
+
+  const fromDow = (from.getDay() + 6) % 7; // Mon=0..Sun=6
+  let best = null;
+  for (const t of templates) {
+    const daysUntil = ((t.dayOffset - fromDow) + 7) % 7;
+    if (!best || daysUntil < best.daysUntil) best = { session: t, daysUntil };
+  }
+  const date = new Date(from);
+  date.setDate(from.getDate() + best.daysUntil);
+
+  return {
+    name: best.session.name,
+    id: best.session.id,
+    date,
+    isToday: date.getTime() === today.getTime(),
+  };
+}
+
 const Eyebrow = ({ children }) => (
   <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">{children}</span>
 );
@@ -50,11 +144,13 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  const startSession = async () => {
+  const startSession = async (sessionTemplateId) => {
     setStarting(true);
     try {
       const token = await getToken();
-      const res = await api.post('/session', { userId: user.sub }, { headers: { Authorization: `Bearer ${token}` } });
+      const body = { userId: user.sub };
+      if (sessionTemplateId) body.sessionTemplateId = sessionTemplateId;
+      const res = await api.post('/session', body, { headers: { Authorization: `Bearer ${token}` } });
       handleSessionStarted(res.data.data.result.sessionLogId);
       navigate('/new-session');
     } catch (err) {
@@ -66,7 +162,18 @@ export default function DashboardPage() {
   const recent = [...sessions]
     .sort((a, b) => new Date(b.sessionDateStart || 0) - new Date(a.sessionDateStart || 0))
     .slice(0, 4);
-  const stats = ['This week', 'Volume', 'Avg session', 'Best lift'];
+  const next = nextSessionFrom(plan);
+  const stats = computeStats(sessions);
+  const volume =
+    stats.weekVolume >= 1000
+      ? { value: (stats.weekVolume / 1000).toFixed(1), unit: 't' }
+      : { value: stats.weekVolume.toLocaleString(), unit: 'kg' };
+  const statCards = [
+    { label: 'Sessions this week', value: String(stats.thisWeek) },
+    { label: 'Volume this week', value: volume.value, unit: volume.unit },
+    { label: 'Avg session time', value: stats.avgSession != null ? String(stats.avgSession) : '—', unit: stats.avgSession != null ? 'min' : '' },
+    { label: 'Heaviest lift', value: stats.best ? String(stats.best.weight) : '—', unit: stats.best ? 'kg' : '', sub: stats.best?.name },
+  ];
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 md:px-8">
@@ -76,14 +183,20 @@ export default function DashboardPage() {
           <h1 className="mt-2 text-3xl">{greetingFor(now.getHours())}, {user?.nickname || 'there'}</h1>
           <p className="mt-1 text-muted">Ready when you are — start a session or pick up a plan.</p>
         </div>
-        <Button onClick={startSession} disabled={starting}>{starting ? 'Starting…' : 'Start a session'}</Button>
+        <Button onClick={() => startSession()} disabled={starting}>{starting ? 'Starting…' : 'Start a session'}</Button>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-        {stats.map((label) => (
-          <Card key={label} className="p-5">
-            <Eyebrow>{label}</Eyebrow>
-            <div className="mt-2.5 text-2xl font-bold text-muted">—</div>
+        {statCards.map((c) => (
+          <Card key={c.label} className="p-5">
+            <Eyebrow>{c.label}</Eyebrow>
+            <div className="mt-2.5 flex items-baseline gap-1">
+              <span className={`text-2xl font-bold ${c.value === '—' ? 'text-muted' : 'text-ink'}`}>
+                {c.value}
+              </span>
+              {c.unit && <span className="text-sm font-medium text-muted">{c.unit}</span>}
+            </div>
+            {c.sub && <div className="mt-0.5 truncate text-xs text-muted">{c.sub}</div>}
           </Card>
         ))}
       </div>
@@ -144,10 +257,31 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <div className="rounded-2xl border border-clay-tintborder bg-clay-tint p-6">
-            <Eyebrow>Streak</Eyebrow>
-            <h2 className="my-2 text-3xl">—</h2>
-            <p className="text-sm text-clay-ink">Weekly training streak will show here.</p>
+          <div
+            className={`flex flex-1 flex-col ${
+              next?.isToday
+                ? 'rounded-2xl border border-clay-tintborder bg-clay-tint p-6'
+                : 'rounded-2xl border border-line bg-surface p-6 shadow-sm'
+            }`}
+          >
+            <Eyebrow>Next session</Eyebrow>
+            {next ? (
+              <>
+                <h2 className="mt-2 text-xl">{next.name}</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {next.isToday
+                    ? 'Today'
+                    : next.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+                {next.isToday && (
+                  <Button className="mt-4 w-full" onClick={() => startSession(next.id)} disabled={starting}>
+                    {starting ? 'Starting…' : 'Start session'}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted">Start a plan to see your next session.</p>
+            )}
           </div>
         </div>
       </div>

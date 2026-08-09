@@ -148,7 +148,14 @@ export default function PlansPage() {
         </div>
       )}
 
-      {modal && selectedPlan && <FullPlanModal plan={selectedPlan} onClose={toggleModal} />}
+      {modal && selectedPlan && (
+        <FullPlanModal
+          plan={selectedPlan}
+          activePlanId={activePlanId}
+          onClose={toggleModal}
+          onPlanChange={getAllWorkoutPlans}
+        />
+      )}
     </div>
   );
 }

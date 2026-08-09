@@ -94,15 +94,15 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose }) {
             <div
               key={ex.id}
               onClick={() => handleSelect(ex)}
-              className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg border px-3.5 py-2.5 hover:border-clay hover:bg-clay-tint ${
+              className={`mb-2 cursor-pointer rounded-lg border px-3.5 py-2.5 hover:border-clay hover:bg-clay-tint ${
                 ex.id === selectedId ? 'border-clay bg-clay-tint' : 'border-line'
               }`}
             >
-              <span className="text-sm font-medium">{ex.name}</span>
+              <div className="text-sm font-medium">{ex.name}</div>
               {ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
-                <span className="text-xs text-muted">
+                <div className="mt-0.5 text-xs text-muted">
                   {ex.TargetMuscles.map((m) => m.name).join(', ')}
-                </span>
+                </div>
               )}
             </div>
           ))}

@@ -68,7 +68,11 @@ export default function FullSessionModal({ session, onClose }) {
                     >
                       <span className="font-mono text-xs text-muted">Set {index + 1}</span>
                       <div className="min-w-0 text-ink">
-                        <span>{log.reps} reps × {log.weight} kg</span>
+                        <span>
+                          {log.reps} reps × {log.weight} kg
+                          {log.rpe != null && log.rpe !== '' ? ` · RPE ${log.rpe}` : ''}
+                          {log.rir != null && log.rir !== '' ? ` · ${log.rir} RIR` : ''}
+                        </span>
                         {log.notes ? (
                           <div className="mt-0.5 whitespace-pre-wrap text-xs text-muted [overflow-wrap:anywhere]">{log.notes}</div>
                         ) : null}

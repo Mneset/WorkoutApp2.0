@@ -7,6 +7,8 @@ import Button from './Button';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
+
 const inputClass =
   'rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
@@ -81,6 +83,8 @@ export default function CreatePlanPage() {
               baseSets: 3,
               baseReps: 10,
               baseWeight: 0,
+              baseRpe: '',
+              baseRir: '',
             },
           ],
         };
@@ -181,6 +185,8 @@ export default function CreatePlanPage() {
               baseSets: Number(ex.baseSets),
               baseReps: Number(ex.baseReps),
               baseWeight: Number(ex.baseWeight) || null,
+              baseRpe: numOrNull(ex.baseRpe),
+              baseRir: numOrNull(ex.baseRir),
             },
             { headers }
           );
@@ -259,90 +265,88 @@ export default function CreatePlanPage() {
 
       {sessionTemplates.map((st) => (
         <Card key={st.tempId} className="mb-4 p-5">
-          <div className="mb-3 flex items-center gap-2.5">
+          <div className="mb-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">
             <input
               type="text"
-              className={`${inputClass} flex-1`}
+              className={`${inputClass} w-full min-w-0 sm:flex-1`}
               placeholder="Session name (e.g. Push Day)"
               value={st.name}
               onChange={(e) => updateSessionTemplate(st.tempId, 'name', e.target.value)}
             />
-            <select
-              className={`${inputClass} w-[150px]`}
-              value={st.dayOffset}
-              onChange={(e) => updateSessionTemplate(st.tempId, 'dayOffset', Number(e.target.value))}
-            >
-              {DAYS.map((day, i) => (
-                <option key={i} value={i}>
-                  {day}
-                </option>
-              ))}
-            </select>
-            <button
-              className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
-              onClick={() => removeSessionTemplate(st.tempId)}
-              aria-label="Remove session"
-            >
-              ✕
-            </button>
-          </div>
-
-          {st.exercises.map((ex, idx) => (
-            <div
-              key={ex.tempId}
-              className="mb-2 flex items-center gap-3 rounded-lg border border-line px-3.5 py-2.5"
-            >
-              <span className="w-4 font-semibold text-clay">{idx + 1}</span>
+            <div className="flex items-center gap-2.5">
               <select
-                className={`${inputClass} flex-1`}
-                value={ex.exerciseId}
-                onChange={(e) =>
-                  updateExerciseInTemplate(st.tempId, ex.tempId, 'exerciseId', e.target.value)
-                }
+                className={`${inputClass} w-full sm:w-[150px]`}
+                value={st.dayOffset}
+                onChange={(e) => updateSessionTemplate(st.tempId, 'dayOffset', Number(e.target.value))}
               >
-                {exercises.map((exercise) => (
-                  <option key={exercise.id} value={exercise.id}>
-                    {exercise.name}
+                {DAYS.map((day, i) => (
+                  <option key={i} value={i}>
+                    {day}
                   </option>
                 ))}
               </select>
-              <input
-                type="number"
-                min="1"
-                className={`${inputClass} w-16`}
-                placeholder="Sets"
-                value={ex.baseSets}
-                onChange={(e) =>
-                  updateExerciseInTemplate(st.tempId, ex.tempId, 'baseSets', e.target.value)
-                }
-              />
-              <input
-                type="number"
-                min="1"
-                className={`${inputClass} w-16`}
-                placeholder="Reps"
-                value={ex.baseReps}
-                onChange={(e) =>
-                  updateExerciseInTemplate(st.tempId, ex.tempId, 'baseReps', e.target.value)
-                }
-              />
-              <input
-                type="number"
-                min="0"
-                className={`${inputClass} w-20`}
-                placeholder="Weight"
-                value={ex.baseWeight}
-                onChange={(e) =>
-                  updateExerciseInTemplate(st.tempId, ex.tempId, 'baseWeight', e.target.value)
-                }
-              />
               <button
                 className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
-                onClick={() => removeExerciseFromTemplate(st.tempId, ex.tempId)}
-                aria-label="Remove exercise"
+                onClick={() => removeSessionTemplate(st.tempId)}
+                aria-label="Remove session"
               >
                 ✕
               </button>
+            </div>
+          </div>
+
+          {st.exercises.map((ex, idx) => (
+            <div key={ex.tempId} className="mb-2 rounded-lg border border-line px-3.5 py-3">
+              <div className="flex items-center gap-3">
+                <span className="w-4 shrink-0 font-semibold text-clay">{idx + 1}</span>
+                <select
+                  className={`${inputClass} min-w-0 flex-1`}
+                  value={ex.exerciseId}
+                  onChange={(e) =>
+                    updateExerciseInTemplate(st.tempId, ex.tempId, 'exerciseId', e.target.value)
+                  }
+                >
+                  {exercises.map((exercise) => (
+                    <option key={exercise.id} value={exercise.id}>
+                      {exercise.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                  onClick={() => removeExerciseFromTemplate(st.tempId, ex.tempId)}
+                  aria-label="Remove exercise"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mt-2 grid grid-cols-3 gap-2 pl-7 sm:grid-cols-5">
+                {[
+                  { key: 'baseSets', label: 'Sets', min: '1' },
+                  { key: 'baseReps', label: 'Reps', min: '1' },
+                  { key: 'baseWeight', label: 'Weight', min: '0' },
+                  { key: 'baseRpe', label: 'RPE', min: '0', max: '10', step: '0.5' },
+                  { key: 'baseRir', label: 'RIR', min: '0' },
+                ].map((f) => (
+                  <label key={f.key} className="block">
+                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                      {f.label}
+                    </span>
+                    <input
+                      type="number"
+                      min={f.min}
+                      max={f.max}
+                      step={f.step}
+                      className={`${inputClass} w-full text-center`}
+                      value={ex[f.key]}
+                      onChange={(e) =>
+                        updateExerciseInTemplate(st.tempId, ex.tempId, f.key, e.target.value)
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
           ))}
 

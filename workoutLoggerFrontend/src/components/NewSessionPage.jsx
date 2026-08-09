@@ -10,6 +10,9 @@ import ExercisePickerModal from './ExercisePickerModal';
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
+const numInputClass =
+  'w-full rounded-lg border border-line-strong bg-surface px-2 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
+
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
 
@@ -29,6 +32,11 @@ function formatElapsed(totalSeconds) {
   const pad = (n) => String(n).padStart(2, '0');
   if (h > 0) return `${pad(h)}:${pad(m)}:${pad(s)}`;
   return `${pad(m)}:${pad(s)}`;
+}
+
+// Empty input -> null (so blank RPE/RIR stay null, not 0), otherwise a number.
+function numOrNull(v) {
+  return v === '' || v === null || v === undefined ? null : Number(v);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -184,6 +192,8 @@ function SessionBuilder({ sessionLogId }) {
         reps,
         weight,
         notes,
+        rpe: null,
+        rir: null,
         sessionLogId,
         Exercise: { name: exerciseName },
       };
@@ -203,7 +213,11 @@ function SessionBuilder({ sessionLogId }) {
       const accessToken = await getToken();
       await api.put(
         `/session/${sessionLogId}`,
-        { notes: sessionNotes, updatedLogs: editTableLogs, name: sessionName },
+        {
+          notes: sessionNotes,
+          updatedLogs: editTableLogs.map((l) => ({ ...l, rpe: numOrNull(l.rpe), rir: numOrNull(l.rir) })),
+          name: sessionName,
+        },
         {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
@@ -242,6 +256,8 @@ function SessionBuilder({ sessionLogId }) {
             reps: log.reps,
             weight: log.weight,
             notes: log.notes,
+            rpe: numOrNull(log.rpe),
+            rir: numOrNull(log.rir),
           },
           {
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -269,6 +285,8 @@ function SessionBuilder({ sessionLogId }) {
           reps: lastLog.reps,
           weight: lastLog.weight,
           notes: lastLog.notes,
+          rpe: numOrNull(lastLog.rpe),
+          rir: numOrNull(lastLog.rir),
           sessionLogId,
         },
         {
@@ -413,23 +431,27 @@ function SessionBuilder({ sessionLogId }) {
                   </div>
 
                   {/* Table header */}
-                  <div className="grid grid-cols-[40px_1fr_1fr_1.4fr] gap-3 border-b border-line pb-2">
+                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 sm:grid-cols-[28px_1fr_1fr_56px_56px_1.2fr] sm:gap-2">
                     <Eyebrow>Set</Eyebrow>
                     <Eyebrow>Reps</Eyebrow>
                     <Eyebrow>Kg</Eyebrow>
-                    <Eyebrow>Notes</Eyebrow>
+                    <Eyebrow>RPE</Eyebrow>
+                    <Eyebrow>RIR</Eyebrow>
+                    <span className="hidden sm:block">
+                      <Eyebrow>Notes</Eyebrow>
+                    </span>
                   </div>
 
                   {/* Set rows */}
                   {logs.map((log, index) => (
                     <div
                       key={`${session.id}-${log.exerciseId}-${index}`}
-                      className="grid grid-cols-[40px_1fr_1fr_1.4fr] items-center gap-3 py-3"
+                      className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[28px_1fr_1fr_56px_56px_1.2fr] sm:gap-2"
                     >
                       <div className="text-muted">{index + 1}</div>
                       <input
                         type="number"
-                        className={inputClass}
+                        className={numInputClass}
                         value={log.reps}
                         onChange={(e) => {
                           const updatedLogs = [...editTableLogs];
@@ -463,7 +485,7 @@ function SessionBuilder({ sessionLogId }) {
                       />
                       <input
                         type="number"
-                        className={inputClass}
+                        className={numInputClass}
                         value={log.weight}
                         onChange={(e) => {
                           const updatedLogs = [...editTableLogs];
@@ -476,8 +498,43 @@ function SessionBuilder({ sessionLogId }) {
                         }}
                       />
                       <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="10"
+                        placeholder="–"
+                        className={numInputClass}
+                        value={log.rpe ?? ''}
+                        onChange={(e) => {
+                          const updatedLogs = [...editTableLogs];
+                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
+                          updatedLogs[globalIndex] = {
+                            ...updatedLogs[globalIndex],
+                            rpe: e.target.value,
+                          };
+                          setEditTableLogs(updatedLogs);
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="–"
+                        className={numInputClass}
+                        value={log.rir ?? ''}
+                        onChange={(e) => {
+                          const updatedLogs = [...editTableLogs];
+                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
+                          updatedLogs[globalIndex] = {
+                            ...updatedLogs[globalIndex],
+                            rir: e.target.value,
+                          };
+                          setEditTableLogs(updatedLogs);
+                        }}
+                      />
+                      <input
                         type="text"
-                        className={inputClass}
+                        placeholder="Notes"
+                        className={`${inputClass} col-span-full mt-1.5 sm:col-span-1 sm:mt-0`}
                         value={log.notes || ''}
                         onChange={(e) => {
                           const updatedLogs = [...editTableLogs];
