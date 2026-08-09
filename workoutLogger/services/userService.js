@@ -9,6 +9,18 @@ class UserService {
         return user
     }
 
+    async getUserProfile(userId) {
+       return await this.db.User.findOne({
+        where: {id: userId},
+        include: [
+            {
+                model: this.db.WorkoutPlan,
+                include: [{ model: this.db.SessionTemplate }]
+            }
+        ]
+       })
+    }
+
     async getCurrentPlanStatus(userId) {
        const user = await this.db.User.findOne({
         where: {id: userId},

@@ -12,7 +12,9 @@ const endSessionSchema = z.object({
         id: z.number().int().positive(),
         reps: z.coerce.number().int().nonnegative().optional(),
         weight: z.coerce.number().nonnegative().optional(),
-        notes: z.string().optional().nullable()
+        notes: z.string().optional().nullable(),
+        rpe: z.coerce.number().min(0).max(10).nullable().optional(),
+        rir: z.coerce.number().int().nonnegative().nullable().optional()
     })).optional()
 });
 

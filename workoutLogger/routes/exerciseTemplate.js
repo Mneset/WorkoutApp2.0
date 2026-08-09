@@ -48,9 +48,9 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', validate(createExerciseTemplateSchema), async (req, res) => {
-    const { sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight } = req.body;
+    const { sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseRpe, baseRir } = req.body;
     try {
-        const newExerciseTemplate = await exerciseTemplateService.addExerciseTemplate(sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight);
+        const newExerciseTemplate = await exerciseTemplateService.addExerciseTemplate(sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseRpe, baseRir);
         return success(res, newExerciseTemplate, 201);
     } catch (err) {
         console.error('Error creating exercise template:', err);

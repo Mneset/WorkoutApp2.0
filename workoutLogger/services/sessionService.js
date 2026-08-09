@@ -7,7 +7,6 @@ class SessionService {
         try {
             const sessions = await this.db.SessionLog.findAll({
                 where: { userId: userId },
-                order: [['sessionDateStart', 'DESC'], ['id', 'DESC']],
                 include: [{
                     model: this.db.ExerciseLog,
                     include: [ this.db.Exercise ]
@@ -87,6 +86,8 @@ class SessionService {
                             reps: exerciseTemplate.baseReps,
                             weight: exerciseTemplate.baseWeight || 0,
                             notes: '',
+                            rpe: exerciseTemplate.baseRpe ?? null,
+                            rir: exerciseTemplate.baseRir ?? null,
                             sessionLogId: session.id
                         })
                     );
@@ -118,7 +119,9 @@ class SessionService {
                     {
                         reps: log.reps,
                         weight: log.weight,
-                        notes: log.notes
+                        notes: log.notes,
+                        rpe: log.rpe,
+                        rir: log.rir
                     },
                     {
                         where: { id: log.id },

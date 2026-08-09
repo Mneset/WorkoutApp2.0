@@ -40,6 +40,16 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.FLOAT,
             field: 'base_weight',
             allowNull: true
+        },
+        baseRpe: {
+            type: DataTypes.FLOAT,
+            field: 'base_rpe',
+            allowNull: true
+        },
+        baseRir: {
+            type: DataTypes.INTEGER,
+            field: 'base_rir',
+            allowNull: true
         }
     }, {
         tableName: 'exercisetemplate',

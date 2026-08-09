@@ -58,6 +58,18 @@ class WorkoutPlanService {
         return rowsUpdated;
     }
 
+    async quitWorkoutPlan(userId) {
+        const [rowsUpdated] = await this.db.User.update({
+            workoutPlanId: null,
+            planStartDate: null,
+            currentWeek: 1
+        }, {
+            where: { id: userId },
+        });
+
+        return rowsUpdated;
+    }
+
     async getTodaysWorkout() {
 
     }

@@ -3,7 +3,7 @@ class ExerciseLogService {
         this.db = db;
     }
 
-    async addExerciseLogToSession(exerciseId, setId, reps, weight, notes, sessionLogId) {
+    async addExerciseLogToSession(exerciseId, setId, reps, weight, notes, rpe, rir, sessionLogId) {
         try {
             const exerciseLog = await this.db.ExerciseLog.create({
                 exerciseId,
@@ -11,6 +11,8 @@ class ExerciseLogService {
                 reps,
                 weight,
                 notes,
+                rpe,
+                rir,
                 sessionLogId
             })
             return exerciseLog
@@ -19,10 +21,10 @@ class ExerciseLogService {
         }
     }
 
-    async updateExerciseLog(exerciseLogId, reps, weight, notes) {
+    async updateExerciseLog(exerciseLogId, reps, weight, notes, rpe, rir) {
         try {
             const exerciseLog = await this.db.ExerciseLog.update(
-                { reps, weight, notes },
+                { reps, weight, notes, rpe, rir },
                 { where: { id: exerciseLogId } }
             );
             return exerciseLog;

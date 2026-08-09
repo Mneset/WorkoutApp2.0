@@ -13,9 +13,9 @@ const { success, error } = require('../utils/response');
 router.use(checkForUser);
 
 router.post('/', validate(createExerciseLogSchema), async (req, res) => {
-    const { exerciseId, setId, reps, weight, notes, sessionLogId } = req.body;
+    const { exerciseId, setId, reps, weight, notes, rpe, rir, sessionLogId } = req.body;
     try {
-        const exerciseLog = await exerciseLogService.addExerciseLogToSession(exerciseId, setId, reps, weight, notes, sessionLogId);
+        const exerciseLog = await exerciseLogService.addExerciseLogToSession(exerciseId, setId, reps, weight, notes, rpe, rir, sessionLogId);
         return success(res, exerciseLog, 201);
     } catch (err) {
         console.error(err);
@@ -24,10 +24,10 @@ router.post('/', validate(createExerciseLogSchema), async (req, res) => {
 });
 
 router.put('/:id', validate(updateExerciseLogSchema), async (req, res) => {
-    const { reps, weight, notes } = req.body;
+    const { reps, weight, notes, rpe, rir } = req.body;
     const exerciseLogId = req.params.id;
     try {
-        const updatedExerciseLog = await exerciseLogService.updateExerciseLog(exerciseLogId, reps, weight, notes);
+        const updatedExerciseLog = await exerciseLogService.updateExerciseLog(exerciseLogId, reps, weight, notes, rpe, rir);
         return success(res, updatedExerciseLog);
     } catch (err) {
         console.error(err);

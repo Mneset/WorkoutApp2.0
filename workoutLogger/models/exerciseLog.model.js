@@ -27,6 +27,14 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.TEXT,
             allowNull: true
         },
+        rpe: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        rir: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
         sessionLogId: {
             type: DataTypes.INTEGER,
             allowNull: false,

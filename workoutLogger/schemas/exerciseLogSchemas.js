@@ -6,13 +6,17 @@ const createExerciseLogSchema = z.object({
     reps: z.coerce.number().int().nonnegative('reps must be a non-negative integer'),
     weight: z.coerce.number().nonnegative('weight must be non-negative'),
     notes: z.string().optional().nullable(),
+    rpe: z.coerce.number().min(0).max(10).nullable().optional(),
+    rir: z.coerce.number().int().nonnegative().nullable().optional(),
     sessionLogId: z.number().int().positive('sessionLogId is required')
 });
 
 const updateExerciseLogSchema = z.object({
     reps: z.coerce.number().int().nonnegative().optional(),
     weight: z.coerce.number().nonnegative().optional(),
-    notes: z.string().optional().nullable()
+    notes: z.string().optional().nullable(),
+    rpe: z.coerce.number().min(0).max(10).nullable().optional(),
+    rir: z.coerce.number().int().nonnegative().nullable().optional()
 });
 
 module.exports = { createExerciseLogSchema, updateExerciseLogSchema };

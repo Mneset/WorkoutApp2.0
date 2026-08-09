@@ -13,14 +13,16 @@ class ExerciseTemplateService {
         return exerciseTemplate;
     }
     
-    async addExerciseTemplate(sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight) {
+    async addExerciseTemplate(sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseRpe, baseRir) {
         const exerciseTemplate = await this.db.ExerciseTemplate.create({
             sessionTemplateId: sessionTemplateId,
             exerciseId: exerciseId,
             orderIndex: orderIndex,
             baseSets: baseSets,
             baseReps: baseReps,
-            baseWeight: baseWeight
+            baseWeight: baseWeight,
+            baseRpe: baseRpe,
+            baseRir: baseRir
         })
 
         return exerciseTemplate;
