@@ -116,11 +116,22 @@ The frontend is built with Vite but keeps the `REACT_APP_` env prefix (via Vite'
 
 ```bash
 npm run migrate       # apply migrations
-npm run seed          # seed reference data
+npm run seed          # seed reference data (roles, exercises, ...)
 npm run migrate:undo  # roll back all migrations
 npm run seed:undo     # remove seeded data
 npm run db:reset      # undo -> migrate -> seed
 ```
+
+Optional dev mock data — plans and a month of logged sessions for one user:
+
+```bash
+MOCK_USER_ID='github|123' npm run seed:mock
+```
+
+Set `MOCK_USER_ID` to your own Auth0 sub (e.g. in `workoutLogger/.env`) to populate
+your account. It wipes that user's sessions and all plans first, so it is re-runnable.
+`npm run seed` is not re-runnable (it clears reference tables on each run) — use
+`npm run db:reset` for a clean rebuild.
 
 ### Tests
 
