@@ -32,3 +32,15 @@
     letter-spacing: -0.02em;
   }
 }
+
+/* iOS Safari auto-zooms when a focused input's font-size is < 16px. On touch
+   devices, force form controls to 16px so focusing never triggers that zoom
+   (pinch-to-zoom still works). Kept UNLAYERED so it wins over Tailwind's
+   `text-sm` utility, which sits in the utilities layer. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
