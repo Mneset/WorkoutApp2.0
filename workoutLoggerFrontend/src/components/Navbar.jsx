@@ -54,7 +54,7 @@ export default function Navbar() {
                 ) : (
                   <span className="grid h-8 w-8 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">{initials}</span>
                 )}
-                <button className="text-sm text-muted hover:text-ink" onClick={() => logout({ returnTo: window.location.origin })}>
+                <button className="text-sm text-muted hover:text-ink" onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
                   Log out
                 </button>
               </>
