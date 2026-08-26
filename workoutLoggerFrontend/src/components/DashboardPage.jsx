@@ -79,31 +79,57 @@ function parseLocalDate(value) {
   return startOfDay(new Date(value));
 }
 
-// Next scheduled session from the active plan's weekly template (dayOffset: Mon=0..Sun=6),
-// never earlier than the plan's start date.
-function nextSessionFrom(plan) {
+function isSameDay(a, b) {
+  return startOfDay(a).getTime() === startOfDay(b).getTime();
+}
+
+// Schedule state for the active plan's weekly template (dayOffset: Mon=0..Sun=6),
+// never earlier than the plan's start date. Also reports whether today's planned
+// session has already been logged, so we can advance to the next one.
+function planSchedule(plan, sessions) {
   const templates = plan?.WorkoutPlan?.SessionTemplates;
   if (!Array.isArray(templates) || templates.length === 0) return null;
 
   const today = startOfDay(new Date());
   const start = parseLocalDate(plan?.planStartDate);
   const from = start && start > today ? start : today; // never before the plan begins
-
   const fromDow = (from.getDay() + 6) % 7; // Mon=0..Sun=6
-  let best = null;
-  for (const t of templates) {
-    const daysUntil = ((t.dayOffset - fromDow) + 7) % 7;
-    if (!best || daysUntil < best.daysUntil) best = { session: t, daysUntil };
-  }
-  const date = new Date(from);
-  date.setDate(from.getDate() + best.daysUntil);
 
-  return {
-    name: best.session.name,
-    id: best.session.id,
-    date,
-    isToday: date.getTime() === today.getTime(),
+  // Soonest template at least `minDays` from `from` (minDays=1 skips today).
+  const soonest = (minDays) => {
+    let best = null;
+    for (const t of templates) {
+      let daysUntil = ((t.dayOffset - fromDow) + 7) % 7;
+      if (daysUntil < minDays) daysUntil += 7;
+      if (!best || daysUntil < best.daysUntil) best = { session: t, daysUntil };
+    }
+    if (!best) return null;
+    const date = new Date(from);
+    date.setDate(from.getDate() + best.daysUntil);
+    return {
+      name: best.session.name,
+      id: best.session.id,
+      date,
+      isToday: isSameDay(date, today),
+    };
   };
+
+  const due = soonest(0); // may be today
+  // Today's planned session counts as done if a session for that template was
+  // started today.
+  const todayDone =
+    due?.isToday &&
+    (sessions || []).some(
+      (s) =>
+        s.sessionTemplateId === due.id &&
+        s.sessionDateStart &&
+        isSameDay(new Date(s.sessionDateStart), today)
+    );
+
+  if (todayDone) {
+    return { todayDone: true, completedName: due.name, next: soonest(1) };
+  }
+  return { todayDone: false, next: due };
 }
 
 const Eyebrow = ({ children }) => (
@@ -162,7 +188,8 @@ export default function DashboardPage() {
   const recent = [...sessions]
     .sort((a, b) => new Date(b.sessionDateStart || 0) - new Date(a.sessionDateStart || 0))
     .slice(0, 4);
-  const next = nextSessionFrom(plan);
+  const schedule = planSchedule(plan, sessions);
+  const next = schedule?.next;
   const stats = computeStats(sessions);
   const volume =
     stats.weekVolume >= 1000
@@ -258,15 +285,40 @@ export default function DashboardPage() {
           </Card>
 
           <div
-            className={`flex flex-1 flex-col ${
-              next?.isToday
-                ? 'rounded-2xl border border-clay-tintborder bg-clay-tint p-6'
-                : 'rounded-2xl border border-line bg-surface p-6 shadow-sm'
+            className={`flex flex-1 flex-col rounded-2xl p-6 ${
+              !schedule?.todayDone && next?.isToday
+                ? 'border border-clay-tintborder bg-clay-tint'
+                : 'border border-line bg-surface shadow-sm'
             }`}
           >
-            <Eyebrow>Next session</Eyebrow>
-            {next ? (
+            {!schedule ? (
               <>
+                <Eyebrow>Next session</Eyebrow>
+                <p className="mt-2 text-sm text-muted">Start a plan to see your next session.</p>
+              </>
+            ) : schedule.todayDone ? (
+              <>
+                <Eyebrow>Today's plan</Eyebrow>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-clay text-[13px] font-bold text-white">✓</span>
+                  <h2 className="text-xl">Workout complete</h2>
+                </div>
+                <p className="mt-1 text-sm text-muted">{schedule.completedName} is done for today. Nice work.</p>
+                {next && (
+                  <div className="mt-4 border-t border-line pt-4">
+                    <Eyebrow>Next session</Eyebrow>
+                    <div className="mt-1 text-[15px] font-semibold">{next.name}</div>
+                    <p className="mt-0.5 text-sm text-muted">
+                      {next.isToday
+                        ? 'Later today'
+                        : next.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <Eyebrow>Next session</Eyebrow>
                 <h2 className="mt-2 text-xl">{next.name}</h2>
                 <p className="mt-1 text-sm text-muted">
                   {next.isToday
@@ -279,8 +331,6 @@ export default function DashboardPage() {
                   </Button>
                 )}
               </>
-            ) : (
-              <p className="mt-2 text-sm text-muted">Start a plan to see your next session.</p>
             )}
           </div>
         </div>
