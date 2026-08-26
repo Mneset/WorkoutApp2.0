@@ -39,6 +39,20 @@ function numOrNull(v) {
   return v === '' || v === null || v === undefined ? null : Number(v);
 }
 
+// Default name for a freeform session, e.g. "Wednesday night workout".
+// Buckets: 00-04 night, 05-11 morning, 12-16 afternoon, 17-20 evening, 21-23 night.
+function defaultSessionName(d = new Date()) {
+  const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
+  const h = d.getHours();
+  const partOfDay =
+    h < 5 ? 'night' :
+    h < 12 ? 'morning' :
+    h < 17 ? 'afternoon' :
+    h < 21 ? 'evening' :
+    'night';
+  return `${weekday} ${partOfDay} workout`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Start-session view (logic preserved from startSessionComponent.js)         */
 /* -------------------------------------------------------------------------- */
@@ -108,6 +122,7 @@ function SessionBuilder({ sessionLogId }) {
   const [showAddExerciseForm, setShowAddExerciseForm] = useState(false);
   const [editTableLogs, setEditTableLogs] = useState([]);
   const [sessionName, setSessionName] = useState('');
+  const [editingName, setEditingName] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
   const [modal, setModal] = useState(false);
   const [tempIdCounter, setTempIdCounter] = useState(10000);
@@ -316,7 +331,7 @@ function SessionBuilder({ sessionLogId }) {
 
   useEffect(() => {
     if (session) {
-      if (session.name) setSessionName(session.name);
+      setSessionName(session.name || defaultSessionName());
       if (session.notes) setSessionNotes(session.notes);
     }
   }, [session]);
@@ -369,30 +384,52 @@ function SessionBuilder({ sessionLogId }) {
     <div className="mx-auto max-w-3xl px-6 py-10">
       {session && (
         <div key={session.id}>
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div>
+          {/* Header — title with an edit button that toggles inline editing */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
               <Eyebrow>IN PROGRESS · {formatElapsed(elapsedSeconds)}</Eyebrow>
-              <h1 className="mt-1 text-2xl">New session</h1>
+              {editingName ? (
+                <input
+                  data-title
+                  autoFocus
+                  type="text"
+                  id="sessionName"
+                  name="sessionName"
+                  aria-label="Session name"
+                  placeholder="New session"
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  onBlur={() => setEditingName(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === 'Escape') {
+                      e.preventDefault();
+                      setEditingName(false);
+                    }
+                  }}
+                  className="mt-1 w-full bg-transparent text-2xl font-[650] tracking-[-0.02em] text-ink placeholder:text-muted focus:outline-none"
+                />
+              ) : (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <h1 className={`truncate text-2xl ${sessionName ? '' : 'text-muted'}`}>
+                    {sessionName || 'New session'}
+                  </h1>
+                  <button
+                    type="button"
+                    aria-label="Edit session name"
+                    title="Edit name"
+                    onClick={() => setEditingName(true)}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-clay"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="text-sm text-muted">{totalKg} kg total</div>
+            <div className="shrink-0 text-sm text-muted">{totalKg} kg total</div>
           </div>
-
-          {/* Session name */}
-          <Card className="mt-6 p-5">
-            <Eyebrow>Session name</Eyebrow>
-            <div className="mt-2">
-              <input
-                type="text"
-                id="sessionName"
-                name="sessionName"
-                placeholder="Enter session name..."
-                value={sessionName}
-                onChange={(e) => setSessionName(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          </Card>
 
           {/* Session notes */}
           <Card className="mt-5 p-5">
@@ -451,10 +488,12 @@ function SessionBuilder({ sessionLogId }) {
                       <div className="text-muted">{index + 1}</div>
                       <input
                         type="number"
+                        min="0"
                         placeholder="–"
                         className={numInputClass}
                         value={log.reps}
                         onChange={(e) => {
+                          if (Number(e.target.value) < 0) return;
                           const updatedLogs = [...editTableLogs];
                           const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
                           updatedLogs[globalIndex] = {
@@ -486,10 +525,12 @@ function SessionBuilder({ sessionLogId }) {
                       />
                       <input
                         type="number"
+                        min="0"
                         placeholder="–"
                         className={numInputClass}
                         value={log.weight}
                         onChange={(e) => {
+                          if (Number(e.target.value) < 0) return;
                           const updatedLogs = [...editTableLogs];
                           const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
                           updatedLogs[globalIndex] = {

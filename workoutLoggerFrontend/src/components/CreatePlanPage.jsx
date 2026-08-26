@@ -347,9 +347,10 @@ export default function CreatePlanPage() {
                       placeholder="–"
                       className={`${inputClass} w-full text-center`}
                       value={ex[f.key]}
-                      onChange={(e) =>
-                        updateExerciseInTemplate(st.tempId, ex.tempId, f.key, e.target.value)
-                      }
+                      onChange={(e) => {
+                        if (Number(e.target.value) < 0) return;
+                        updateExerciseInTemplate(st.tempId, ex.tempId, f.key, e.target.value);
+                      }}
                     />
                   </label>
                 ))}
