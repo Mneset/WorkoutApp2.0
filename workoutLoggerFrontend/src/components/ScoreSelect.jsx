@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 /**
- * Compact numeric dropdown that always opens BELOW the trigger and scrolls when
- * the list is long (native <select> can't guarantee either). Used for RPE/RIR.
+ * Compact numeric dropdown for RPE/RIR (options shown high → low, blank = not set).
+ *
+ * On touch devices it renders a native <select> so the OS shows its own polished
+ * picker (like the exercise muscle filter). On mouse devices it renders a custom
+ * menu that always opens BELOW the trigger and scrolls — native <select> on
+ * desktop tends to open upward when near the bottom of the viewport.
  *
  *   <ScoreSelect value={log.rpe ?? ''} options={RPE_OPTIONS} onChange={(v) => ...} />
  *
@@ -10,7 +14,19 @@ import React, { useState, useRef, useEffect } from 'react';
  */
 export default function ScoreSelect({ value, options, onChange }) {
   const [open, setOpen] = useState(false);
+  const [coarse, setCoarse] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+  );
   const ref = useRef(null);
+
+  // Track pointer type (handles device-emulation / hybrid devices).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const onChangeMq = (e) => setCoarse(e.matches);
+    mq.addEventListener('change', onChangeMq);
+    return () => mq.removeEventListener('change', onChangeMq);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -23,7 +39,25 @@ export default function ScoreSelect({ value, options, onChange }) {
 
   const selected = value === '' || value === null || value === undefined ? '' : String(value);
   const display = selected === '' ? '–' : selected;
+  const highToLow = [...options].reverse();
 
+  // Touch: native <select> → OS picker.
+  if (coarse) {
+    return (
+      <select
+        className="w-full rounded-lg border border-line-strong bg-surface px-2 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint"
+        value={selected}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">–</option>
+        {highToLow.map((v) => (
+          <option key={v} value={v}>{v}</option>
+        ))}
+      </select>
+    );
+  }
+
+  // Mouse: custom menu that always drops below and scrolls.
   const pick = (v) => {
     onChange(v);
     setOpen(false);
@@ -60,7 +94,7 @@ export default function ScoreSelect({ value, options, onChange }) {
           <button type="button" onClick={() => pick('')} className={optionClass(selected === '')}>
             –
           </button>
-          {[...options].reverse().map((v) => (
+          {highToLow.map((v) => (
             <button
               key={v}
               type="button"
