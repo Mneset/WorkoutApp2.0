@@ -80,9 +80,9 @@ export default function CreatePlanPage() {
             {
               tempId: Date.now(),
               exerciseId: exercises.length > 0 ? exercises[0].id : '',
-              baseSets: 3,
-              baseReps: 10,
-              baseWeight: 0,
+              baseSets: '',
+              baseReps: '',
+              baseWeight: '',
               baseRpe: '',
               baseRir: '',
             },
@@ -135,6 +135,12 @@ export default function CreatePlanPage() {
       if (!st.name.trim()) {
         setError('All sessions need a name');
         return;
+      }
+      for (const ex of st.exercises) {
+        if (!(Number(ex.baseSets) >= 1) || !(Number(ex.baseReps) >= 1)) {
+          setError('Every exercise needs sets and reps (at least 1)');
+          return;
+        }
       }
     }
 
@@ -338,6 +344,7 @@ export default function CreatePlanPage() {
                       min={f.min}
                       max={f.max}
                       step={f.step}
+                      placeholder="–"
                       className={`${inputClass} w-full text-center`}
                       value={ex[f.key]}
                       onChange={(e) =>

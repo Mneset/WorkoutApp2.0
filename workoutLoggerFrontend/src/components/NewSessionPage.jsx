@@ -98,8 +98,8 @@ function StartSession() {
 function SessionBuilder({ sessionLogId }) {
   const [exerciseId, setExerciseId] = useState();
   const [setId, setSetId] = useState(1);
-  const [reps, setReps] = useState(10);
-  const [weight, setWeight] = useState(100);
+  const [reps, setReps] = useState('');
+  const [weight, setWeight] = useState('');
   const [notes, setNotes] = useState('');
   const [session, setSession] = useState(null);
   const [exercises, setExercises] = useState([]);
@@ -451,6 +451,7 @@ function SessionBuilder({ sessionLogId }) {
                       <div className="text-muted">{index + 1}</div>
                       <input
                         type="number"
+                        placeholder="–"
                         className={numInputClass}
                         value={log.reps}
                         onChange={(e) => {
@@ -485,6 +486,7 @@ function SessionBuilder({ sessionLogId }) {
                       />
                       <input
                         type="number"
+                        placeholder="–"
                         className={numInputClass}
                         value={log.weight}
                         onChange={(e) => {

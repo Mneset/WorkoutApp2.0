@@ -2,7 +2,10 @@ const { ZodError } = require('zod');
 
 const validate = (schema) => (req, res, next) => {
     try {
-        schema.parse(req.body);
+        // Use the PARSED result so schema coercion (e.g. z.coerce.number turning
+        // '' or '8' into a real number) actually reaches the route/DB. Merge over the
+        // raw body so any field not covered by the schema is preserved.
+        req.body = { ...req.body, ...schema.parse(req.body) };
         next();
     } catch (error) {
         if (error instanceof ZodError) {
