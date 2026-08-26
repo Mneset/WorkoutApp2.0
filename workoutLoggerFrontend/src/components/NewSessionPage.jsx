@@ -6,12 +6,17 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 import ExercisePickerModal from './ExercisePickerModal';
+import ScoreSelect from './ScoreSelect';
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
 const numInputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-2 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
+
+// RPE: 1–10 in 0.5 steps. RIR: 1–10 in whole steps. Both optional (blank = not set).
+const RPE_OPTIONS = Array.from({ length: 19 }, (_, i) => 1 + i * 0.5);
+const RIR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
@@ -468,7 +473,7 @@ function SessionBuilder({ sessionLogId }) {
                   </div>
 
                   {/* Table header */}
-                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 sm:grid-cols-[28px_1fr_1fr_56px_56px_1.2fr] sm:gap-2">
+                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 sm:grid-cols-[28px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
                     <Eyebrow>Set</Eyebrow>
                     <Eyebrow>Reps</Eyebrow>
                     <Eyebrow>Kg</Eyebrow>
@@ -483,7 +488,7 @@ function SessionBuilder({ sessionLogId }) {
                   {logs.map((log, index) => (
                     <div
                       key={`${session.id}-${log.exerciseId}-${index}`}
-                      className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[28px_1fr_1fr_56px_56px_1.2fr] sm:gap-2"
+                      className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[28px_1fr_1fr_72px_72px_1.2fr] sm:gap-2"
                     >
                       <div className="text-muted">{index + 1}</div>
                       <input
@@ -540,37 +545,23 @@ function SessionBuilder({ sessionLogId }) {
                           setEditTableLogs(updatedLogs);
                         }}
                       />
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="10"
-                        placeholder="–"
-                        className={numInputClass}
+                      <ScoreSelect
                         value={log.rpe ?? ''}
-                        onChange={(e) => {
+                        options={RPE_OPTIONS}
+                        onChange={(v) => {
                           const updatedLogs = [...editTableLogs];
                           const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = {
-                            ...updatedLogs[globalIndex],
-                            rpe: e.target.value,
-                          };
+                          updatedLogs[globalIndex] = { ...updatedLogs[globalIndex], rpe: v };
                           setEditTableLogs(updatedLogs);
                         }}
                       />
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="–"
-                        className={numInputClass}
+                      <ScoreSelect
                         value={log.rir ?? ''}
-                        onChange={(e) => {
+                        options={RIR_OPTIONS}
+                        onChange={(v) => {
                           const updatedLogs = [...editTableLogs];
                           const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = {
-                            ...updatedLogs[globalIndex],
-                            rir: e.target.value,
-                          };
+                          updatedLogs[globalIndex] = { ...updatedLogs[globalIndex], rir: v };
                           setEditTableLogs(updatedLogs);
                         }}
                       />

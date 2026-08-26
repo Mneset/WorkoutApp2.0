@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import Card from './Card';
 import Button from './Button';
+import ScoreSelect from './ScoreSelect';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -11,6 +12,10 @@ const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Num
 
 const inputClass =
   'rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
+
+// RPE: 1–10 in 0.5 steps. RIR: 1–10 in whole steps. Both optional (blank = not set).
+const RPE_OPTIONS = Array.from({ length: 19 }, (_, i) => 1 + i * 0.5);
+const RIR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
 const Eyebrow = ({ children }) => (
   <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">{children}</span>
@@ -332,26 +337,34 @@ export default function CreatePlanPage() {
                   { key: 'baseSets', label: 'Sets', min: '1' },
                   { key: 'baseReps', label: 'Reps', min: '1' },
                   { key: 'baseWeight', label: 'Weight', min: '0' },
-                  { key: 'baseRpe', label: 'RPE', min: '0', max: '10', step: '0.5' },
-                  { key: 'baseRir', label: 'RIR', min: '0' },
+                  { key: 'baseRpe', label: 'RPE', options: RPE_OPTIONS },
+                  { key: 'baseRir', label: 'RIR', options: RIR_OPTIONS },
                 ].map((f) => (
                   <label key={f.key} className="block">
                     <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted">
                       {f.label}
                     </span>
-                    <input
-                      type="number"
-                      min={f.min}
-                      max={f.max}
-                      step={f.step}
-                      placeholder="–"
-                      className={`${inputClass} w-full text-center`}
-                      value={ex[f.key]}
-                      onChange={(e) => {
-                        if (Number(e.target.value) < 0) return;
-                        updateExerciseInTemplate(st.tempId, ex.tempId, f.key, e.target.value);
-                      }}
-                    />
+                    {f.options ? (
+                      <ScoreSelect
+                        value={ex[f.key]}
+                        options={f.options}
+                        onChange={(v) => updateExerciseInTemplate(st.tempId, ex.tempId, f.key, v)}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        min={f.min}
+                        max={f.max}
+                        step={f.step}
+                        placeholder="–"
+                        className={`${inputClass} w-full text-center`}
+                        value={ex[f.key]}
+                        onChange={(e) => {
+                          if (Number(e.target.value) < 0) return;
+                          updateExerciseInTemplate(st.tempId, ex.tempId, f.key, e.target.value);
+                        }}
+                      />
+                    )}
                   </label>
                 ))}
               </div>
