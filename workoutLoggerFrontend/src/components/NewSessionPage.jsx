@@ -8,6 +8,7 @@ import Button from './Button';
 import ExercisePickerModal from './ExercisePickerModal';
 import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
+import { partOfDay } from '../timeOfDay';
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
@@ -46,17 +47,9 @@ function numOrNull(v) {
 }
 
 // Default name for a freeform session, e.g. "Wednesday night workout".
-// Buckets: 00-04 night, 05-11 morning, 12-16 afternoon, 17-20 evening, 21-23 night.
 function defaultSessionName(d = new Date()) {
   const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-  const h = d.getHours();
-  const partOfDay =
-    h < 5 ? 'night' :
-    h < 12 ? 'morning' :
-    h < 17 ? 'afternoon' :
-    h < 21 ? 'evening' :
-    'night';
-  return `${weekday} ${partOfDay} workout`;
+  return `${weekday} ${partOfDay(d.getHours())} workout`;
 }
 
 /* -------------------------------------------------------------------------- */

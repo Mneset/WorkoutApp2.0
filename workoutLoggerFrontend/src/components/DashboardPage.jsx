@@ -5,11 +5,15 @@ import { useSession } from '../context/SessionContext';
 import api from '../api';
 import Card from './Card';
 import Button from './Button';
+import { partOfDay } from '../timeOfDay';
 
+// Greeting shares the same time buckets as the session-name generator.
 function greetingFor(hour) {
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  const p = partOfDay(hour);
+  if (p === 'morning') return 'Good morning';
+  if (p === 'afternoon') return 'Good afternoon';
+  if (p === 'evening') return 'Good evening';
+  return 'Good night';
 }
 
 function startOfDay(d) {
@@ -264,10 +268,52 @@ export default function DashboardPage() {
       ? { value: (stats.weekVolume / 1000).toFixed(1), unit: 't' }
       : { value: stats.weekVolume.toLocaleString(), unit: 'kg' };
   const statCards = [
-    { label: 'Sessions this week', value: String(stats.thisWeek) },
-    { label: 'Volume this week', value: volume.value, unit: volume.unit },
-    { label: 'Avg session time', value: stats.avgSession != null ? String(stats.avgSession) : '—', unit: stats.avgSession != null ? 'min' : '' },
-    { label: 'Heaviest lift', value: stats.best ? String(stats.best.weight) : '—', unit: stats.best ? 'kg' : '', sub: stats.best?.name },
+    {
+      label: 'Sessions this week',
+      value: String(stats.thisWeek),
+      icon: (
+        <>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </>
+      ),
+    },
+    {
+      label: 'Volume this week',
+      value: volume.value,
+      unit: volume.unit,
+      icon: (
+        <>
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+          <polyline points="17 6 23 6 23 12" />
+        </>
+      ),
+    },
+    {
+      label: 'Avg session time',
+      value: stats.avgSession != null ? String(stats.avgSession) : '—',
+      unit: stats.avgSession != null ? 'min' : '',
+      icon: (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </>
+      ),
+    },
+    {
+      label: 'Heaviest lift',
+      value: stats.best ? String(stats.best.weight) : '—',
+      unit: stats.best ? 'kg' : '',
+      sub: stats.best?.name,
+      icon: (
+        <>
+          <circle cx="12" cy="8" r="7" />
+          <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+        </>
+      ),
+    },
   ];
 
   return (
@@ -275,7 +321,9 @@ export default function DashboardPage() {
       <div className="mb-7 flex flex-col items-start justify-between gap-5 sm:flex-row">
         <div>
           <Eyebrow>{dateLabel}</Eyebrow>
-          <h1 className="mt-2 text-3xl">{greetingFor(now.getHours())}, {user?.nickname || 'there'}</h1>
+          <h1 className="mt-2 text-3xl">
+            {greetingFor(now.getHours())}, <span className="text-clay">{user?.nickname || 'there'}</span>
+          </h1>
           <p className="mt-1 text-muted">{subtitle}</p>
         </div>
         {inProgress ? (
@@ -292,8 +340,15 @@ export default function DashboardPage() {
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         {statCards.map((c) => (
-          <Card key={c.label} className="p-5">
-            <Eyebrow>{c.label}</Eyebrow>
+          <Card key={c.label} className="p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+            <div className="flex items-start justify-between gap-2">
+              <Eyebrow>{c.label}</Eyebrow>
+              <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-clay-tint text-clay">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {c.icon}
+                </svg>
+              </span>
+            </div>
             <div className="mt-2.5 flex items-baseline gap-1">
               <span className={`text-2xl font-bold ${c.value === '—' ? 'text-muted' : 'text-ink'}`}>
                 {c.value}
@@ -327,9 +382,9 @@ export default function DashboardPage() {
                   onClick={() => navigate('/session-history', { state: { openSessionId: s.id } })}
                   className="group flex cursor-pointer items-center gap-4 border-t border-line py-3.5 first:border-t-0"
                 >
-                  <div className="grid h-11 w-11 flex-shrink-0 place-content-center rounded-[10px] border border-line bg-surface-2 text-center">
-                    <b className="text-sm leading-none">{d ? d.getDate() : '–'}</b>
-                    <span className="mt-0.5 block text-[9px] uppercase tracking-wide text-muted">
+                  <div className="grid h-11 w-11 flex-shrink-0 place-content-center rounded-[10px] bg-clay-tint text-center">
+                    <b className="text-sm leading-none text-clay">{d ? d.getDate() : '–'}</b>
+                    <span className="mt-0.5 block text-[9px] uppercase tracking-wide text-clay/70">
                       {d ? d.toLocaleDateString('en-GB', { month: 'short' }) : ''}
                     </span>
                   </div>

@@ -97,10 +97,7 @@ export default function HistoryPage() {
       ) : sessions && sessions.length > 0 ? (
         <Card className="p-2 sm:p-4">
           {sessions.map((session) => {
-            const date = new Date(session.sessionDateStart).toLocaleDateString('en-GB', {
-              day: '2-digit',
-              month: 'short',
-            });
+            const d = new Date(session.sessionDateStart);
 
             const distinctNames = [
               ...new Set(
@@ -119,24 +116,29 @@ export default function HistoryPage() {
             return (
               <div
                 key={session.id}
-                className="grid cursor-pointer grid-cols-[70px_1fr_auto] items-center gap-4 border-t border-line py-4 first:border-t-0"
+                className="group grid cursor-pointer grid-cols-[44px_1fr_auto] items-center gap-4 rounded-xl px-2 py-3 transition-colors hover:bg-surface-2"
                 onClick={() => {
                   setSelectedSession(session);
                   toggleModal();
                 }}
               >
-                <span className="font-mono text-xs text-muted">{date}</span>
+                <div className="grid h-11 w-11 flex-shrink-0 place-content-center rounded-[10px] bg-clay-tint text-center">
+                  <b className="text-sm leading-none text-clay">{d.getDate()}</b>
+                  <span className="mt-0.5 block text-[9px] uppercase tracking-wide text-clay/70">
+                    {d.toLocaleDateString('en-GB', { month: 'short' })}
+                  </span>
+                </div>
                 <div className="min-w-0">
-                  <div className="truncate text-[15px] font-semibold">
+                  <div className="truncate text-[15px] font-semibold transition-colors group-hover:text-clay">
                     {session.name || 'Untitled session'}
                   </div>
                   {summary && (
                     <div className="mt-0.5 truncate text-[13px] text-muted">{summary}</div>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {totalKg > 0 && (
-                    <span className="text-sm font-semibold">{totalKg.toLocaleString()} kg</span>
+                    <span className="text-sm font-bold text-clay">{totalKg.toLocaleString()} kg</span>
                   )}
                   <button
                     className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-clay"
