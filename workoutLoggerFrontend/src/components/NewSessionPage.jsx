@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
@@ -46,10 +46,10 @@ function numOrNull(v) {
   return v === '' || v === null || v === undefined ? null : Number(v);
 }
 
-// Default name for a freeform session, e.g. "Wednesday night workout".
+// Default name for a freeform session, e.g. "Wednesday night session".
 function defaultSessionName(d = new Date()) {
   const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-  return `${weekday} ${partOfDay(d.getHours())} workout`;
+  return `${weekday} ${partOfDay(d.getHours())} session`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -60,35 +60,9 @@ function StartSession() {
   const { handleSessionStarted } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [inProgress, setInProgress] = useState(null);
-  const [checking, setChecking] = useState(true);
+  const initRef = useRef(false);
 
-  // Enforce one in-progress session at a time: an in-progress session is one with a
-  // start but no end date. If one exists, offer to resume or discard it instead of
-  // silently starting a second.
-  useEffect(() => {
-    const check = async () => {
-      setChecking(true);
-      try {
-        const accessToken = await getToken();
-        const res = await api.get('/session', {
-          params: { userId: user.sub },
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const sessions = res.data.data.result || [];
-        setInProgress(sessions.find((s) => !s.sessionDateEnd) || null);
-      } catch (err) {
-        console.error('Error checking for in-progress session:', err);
-      } finally {
-        setChecking(false);
-      }
-    };
-    check();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleStartSession = async (e) => {
-    e.preventDefault();
+  const startNew = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -100,52 +74,52 @@ function StartSession() {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
       );
+      // Flipping the session context unmounts this view and mounts the builder.
       handleSessionStarted(response.data.data.result.sessionLogId);
     } catch (err) {
       setError('Failed to start session. Please try again.');
       console.error('Error starting session:', err);
-    } finally {
       setLoading(false);
     }
   };
 
-  const discardInProgress = async () => {
-    if (!inProgress) return;
-    if (!window.confirm('This deletes your in-progress workout. Continue?')) return;
-    try {
-      const accessToken = await getToken();
-      await api.delete(`/session/${inProgress.id}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      setInProgress(null);
-    } catch (err) {
-      alert('Failed to discard session. Please try again.');
-      console.error('Error discarding session:', err);
-    }
-  };
+  // On open: resume the in-progress session if there is one, otherwise create a new
+  // one — either way drop straight into the builder, so New Workout behaves the same
+  // whether or not the app still had the session in memory.
+  useEffect(() => {
+    if (initRef.current) return; // run once (guards against StrictMode double-invoke)
+    initRef.current = true;
+    const init = async () => {
+      try {
+        const accessToken = await getToken();
+        const res = await api.get('/session', {
+          params: { userId: user.sub },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const ip = (res.data.data.result || []).find((s) => !s.sessionDateEnd) || null;
+        if (ip) {
+          handleSessionStarted(ip.id); // resume straight into it
+        } else {
+          await startNew();
+        }
+      } catch (err) {
+        console.error('Error checking for in-progress session:', err);
+        setError('Failed to start session. Please try again.');
+      }
+    };
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (checking) {
+  if (error) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-10">
-        <div className="py-16 text-center text-sm text-muted">Loading…</div>
-      </div>
-    );
-  }
-
-  if (inProgress) {
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <Eyebrow>Workout in progress</Eyebrow>
-        <h1 className="mt-1 text-2xl">You have an unfinished session</h1>
-        <p className="mt-1 text-muted">Pick up where you left off, or discard it to start fresh.</p>
-
-        <Card className="mt-6 p-6">
-          <div className="text-sm font-semibold">{inProgress.name || 'Untitled session'}</div>
-          <div className="mt-6 flex items-center justify-between">
-            <Button variant="danger" onClick={discardInProgress}>
-              Discard
+        <Card className="p-6">
+          <p className="text-sm text-danger">{error}</p>
+          <div className="mt-4">
+            <Button onClick={startNew} disabled={loading}>
+              {loading ? 'Starting…' : 'Try again'}
             </Button>
-            <Button onClick={() => handleSessionStarted(inProgress.id)}>Resume workout</Button>
           </div>
         </Card>
       </div>
@@ -154,22 +128,7 @@ function StartSession() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
-      <Eyebrow>Ready to train</Eyebrow>
-      <h1 className="mt-1 text-2xl">Start a new workout</h1>
-      <p className="mt-1 text-muted">Log your sets and reps as you go.</p>
-
-      <Card className="mt-6 p-6">
-        <h2 className="text-lg">Start a new session</h2>
-        <p className="mt-1 text-sm text-muted">
-          Begin an empty session and add exercises as you lift.
-        </p>
-        {error && <p className="mt-3 text-sm text-danger">{error}</p>}
-        <form className="mt-5" onSubmit={handleStartSession}>
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Starting…' : 'Start session'}
-          </Button>
-        </form>
-      </Card>
+      <div className="py-16 text-center text-sm text-muted">Loading…</div>
     </div>
   );
 }
@@ -266,8 +225,16 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       setSession(response.data.data.result);
       setEditTableLogs(response.data.data.result.ExerciseLogs);
     } catch (err) {
-      setError('Failed to load session');
       console.error('Error getting current session:', err);
+      if (editMode) {
+        // Editing targets a specific session; if it genuinely fails, show the error.
+        setError('Failed to load session');
+      } else {
+        // The in-memory session pointer is stale (finished/discarded elsewhere).
+        // Clear it so the page falls back to the start/resume view instead of a
+        // dead "Failed to load" screen.
+        handleSessionEnded();
+      }
     } finally {
       setLoading(false);
     }

@@ -39,7 +39,7 @@ export default function Navbar() {
         >
           <div className="flex flex-col gap-1 md:flex-row md:items-center">
             <NavLink to="/" end className={linkClass} onClick={close}>Home</NavLink>
-            <NavLink to="/new-session" className={linkClass} onClick={close}>New Workout</NavLink>
+            <NavLink to="/new-session" className={linkClass} onClick={close}>New Session</NavLink>
             <NavLink to="/session-history" className={linkClass} onClick={close}>History</NavLink>
             <NavLink to="/workout-plan" className={linkClass} onClick={close}>Plans</NavLink>
           </div>

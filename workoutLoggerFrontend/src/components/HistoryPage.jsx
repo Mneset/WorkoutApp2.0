@@ -172,7 +172,7 @@ export default function HistoryPage() {
         </Card>
       ) : (
         <div className="py-16 text-center text-muted">
-          <p>No sessions found. Start a new workout!</p>
+          <p>No sessions found. Start a new session!</p>
         </div>
       )}
 

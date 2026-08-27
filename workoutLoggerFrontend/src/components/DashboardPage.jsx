@@ -144,7 +144,7 @@ const Eyebrow = ({ children }) => (
 
 export default function DashboardPage() {
   const { user, getToken, isAuthenticated } = useAuth();
-  const { handleSessionStarted } = useSession();
+  const { handleSessionStarted, handleSessionEnded } = useSession();
   const navigate = useNavigate();
 
   const [sessions, setSessions] = useState([]);
@@ -217,9 +217,10 @@ export default function DashboardPage() {
 
   const discardInProgress = async () => {
     if (!inProgress) return;
-    if (!window.confirm('This deletes your in-progress workout. Continue?')) return;
+    if (!window.confirm('This deletes your in-progress session. Continue?')) return;
     try {
       await deleteInProgress();
+      handleSessionEnded(); // clear any stale in-memory pointer to the deleted session
       loadData();
     } catch (err) {
       alert('Failed to discard session. Please try again.');
@@ -250,7 +251,7 @@ export default function DashboardPage() {
   // Greeting subtitle that reflects the user's actual state instead of a generic line.
   let subtitle;
   if (inProgress) {
-    subtitle = 'You have a workout in progress.';
+    subtitle = 'You have a session in progress.';
   } else if (plan?.WorkoutPlan) {
     const planName = plan.WorkoutPlan.name;
     if (schedule?.todayDone) {
@@ -329,7 +330,7 @@ export default function DashboardPage() {
         {inProgress ? (
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={discardInProgress}>Discard</Button>
-            <Button onClick={resumeInProgress}>Resume workout</Button>
+            <Button onClick={resumeInProgress}>Resume session</Button>
           </div>
         ) : (
           <Button onClick={() => startSession()} disabled={starting}>
@@ -433,7 +434,7 @@ export default function DashboardPage() {
                 <Eyebrow>Today's plan</Eyebrow>
                 <div className="mt-2 flex items-center gap-2">
                   <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-clay text-[13px] font-bold text-white">✓</span>
-                  <h2 className="text-xl">Workout complete</h2>
+                  <h2 className="text-xl">Session complete</h2>
                 </div>
                 <p className="mt-1 text-sm text-muted">{schedule.completedName} is done for today. Nice work.</p>
                 {next && (
@@ -479,7 +480,7 @@ export default function DashboardPage() {
               You already have a workout in progress. Resume it, or discard it and start a new one.
             </p>
             <div className="mt-6 flex flex-col gap-2">
-              <Button onClick={resumeInProgress}>Resume workout</Button>
+              <Button onClick={resumeInProgress}>Resume session</Button>
               <Button variant="danger" onClick={() => discardAndStart(resumePrompt.templateId)}>
                 Discard &amp; start new
               </Button>
