@@ -7,6 +7,7 @@ import Card from './Card';
 import Button from './Button';
 import ExercisePickerModal from './ExercisePickerModal';
 import ScoreSelect from './ScoreSelect';
+import SwipeToDelete from './SwipeToDelete';
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
@@ -198,6 +199,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const [sessionName, setSessionName] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
   const [modal, setModal] = useState(false);
   const [tempIdCounter, setTempIdCounter] = useState(10000);
   const [loading, setLoading] = useState(true);
@@ -207,16 +209,32 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   // Presentational count-up timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // Touch devices get swipe-to-delete for sets; mouse devices get a delete button.
+  const [coarse, setCoarse] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const on = (e) => setCoarse(e.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+
   const { getToken } = useAuth();
   const { handleSessionEnded } = useSession();
   const navigate = useNavigate();
 
+  // Count up from the session's real start time, so resuming shows true elapsed
+  // time instead of restarting from zero.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
+    if (!session?.sessionDateStart) return;
+    const startMs = new Date(session.sessionDateStart).getTime();
+    const tick = () => setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [session?.sessionDateStart]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -437,7 +455,10 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   useEffect(() => {
     if (session) {
       setSessionName(session.name || defaultSessionName());
-      if (session.notes) setSessionNotes(session.notes);
+      if (session.notes) {
+        setSessionNotes(session.notes);
+        setShowNotes(true);
+      }
     }
   }, [session]);
 
@@ -492,7 +513,17 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
           {/* Header — title with an edit button that toggles inline editing */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <Eyebrow>{editMode ? 'EDITING SESSION' : `IN PROGRESS · ${formatElapsed(elapsedSeconds)}`}</Eyebrow>
+              {editMode ? (
+                <Eyebrow>EDITING SESSION</Eyebrow>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-clay opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-clay" />
+                  </span>
+                  <Eyebrow>IN PROGRESS · {formatElapsed(elapsedSeconds)}</Eyebrow>
+                </span>
+              )}
               {editingName ? (
                 <input
                   data-title
@@ -533,30 +564,72 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                 </div>
               )}
             </div>
-            <div className="shrink-0 text-sm text-muted">{totalKg} kg total</div>
+            <div className="shrink-0 text-sm text-muted">
+              <span className={totalKg > 0 ? 'font-bold text-clay' : 'font-semibold text-ink'}>
+                {totalKg.toLocaleString()}
+              </span>{' '}
+              kg total
+            </div>
           </div>
 
-          {/* Session notes */}
-          <Card className="mt-5 p-5">
-            <Eyebrow>Session notes</Eyebrow>
-            <textarea
-              className={`${inputClass} mt-2 min-h-[84px] resize-y`}
-              placeholder="How did the session feel? (optional)"
-              value={sessionNotes}
-              onChange={(e) => setSessionNotes(e.target.value)}
-            />
-          </Card>
+          {/* Session notes — optional; collapsed behind a button until wanted. */}
+          {showNotes ? (
+            <Card className="group mt-5 border border-clay-tintborder bg-surface-2 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-clay-tint text-clay">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 6h14M5 12h14M5 18h9" />
+                    </svg>
+                  </span>
+                  <Eyebrow>Session notes</Eyebrow>
+                </div>
+                <button
+                  type="button"
+                  title="Remove note"
+                  onClick={() => {
+                    setShowNotes(false);
+                    setSessionNotes('');
+                  }}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface hover:text-danger"
+                >
+                  ✕
+                </button>
+              </div>
+              <textarea
+                className={`${inputClass} mt-3 min-h-[84px] resize-y`}
+                placeholder="How did the session go?"
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+              />
+            </Card>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowNotes(true)}
+              className={`${dashedButtonClass} mt-5`}
+            >
+              + Add session note
+            </button>
+          )}
 
           {/* Exercises */}
-          {groupedLogs.length > 0 ? (
+          {groupedLogs.length > 0 && (
             <div className="mt-5 flex flex-col gap-5">
               {groupedLogs.map(([exerciseName, logs]) => (
-                <Card key={exerciseName} className="p-5">
+                <Card
+                  key={exerciseName}
+                  className="group overflow-hidden border-0 p-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="h-1.5 w-full bg-gradient-to-r from-clay via-clay-hover to-clay" />
+                  <div className="p-5">
                   <div className="mb-3 flex items-start justify-between">
                     <div>
-                      <div className="font-semibold">{exerciseName}</div>
+                      <div className="font-semibold text-ink">{exerciseName}</div>
                       {logs[0]?.Exercise?.muscleGroup && (
-                        <div className="text-xs text-muted">{logs[0].Exercise.muscleGroup}</div>
+                        <span className="mt-1 inline-block rounded-full bg-clay-tint px-2 py-0.5 text-[11px] font-semibold text-clay">
+                          {logs[0].Exercise.muscleGroup}
+                        </span>
                       )}
                     </div>
                     <button
@@ -573,7 +646,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                   </div>
 
                   {/* Table header */}
-                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[28px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
+                  <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
                     <span>Set</span>
                     <span className="text-center">Reps</span>
                     <span className="text-center">Kg</span>
@@ -594,11 +667,21 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
 
                   {/* Set rows */}
                   {logs.map((log, index) => (
-                    <div
+                    <SwipeToDelete
                       key={`${session.id}-${log.exerciseId}-${index}`}
-                      className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[28px_1fr_1fr_72px_72px_1.2fr] sm:gap-2"
+                      enabled={coarse}
+                      onDelete={() => handleDeleteSet(log)}
                     >
-                      <div className="text-muted">{index + 1}</div>
+                    <div
+                      className={`grid grid-cols-[30px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2 ${
+                        index > 0 ? 'border-t border-line' : ''
+                      }`}
+                    >
+                      <div className="row-span-2 flex items-center self-center sm:row-span-1">
+                        <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
+                          {index + 1}
+                        </span>
+                      </div>
                       <input
                         type="number"
                         min="0"
@@ -673,7 +756,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                           setEditTableLogs(updatedLogs);
                         }}
                       />
-                      <div className="col-span-full mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:mt-0">
+                      <div className="col-span-4 col-start-2 mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:col-start-auto sm:mt-0">
                         <input
                           type="text"
                           placeholder="Notes"
@@ -689,16 +772,19 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                             setEditTableLogs(updatedLogs);
                           }}
                         />
-                        <button
-                          type="button"
-                          title="Delete set"
-                          onClick={() => handleDeleteSet(log)}
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
-                        >
-                          ✕
-                        </button>
+                        {!coarse && (
+                          <button
+                            type="button"
+                            title="Delete set"
+                            onClick={() => handleDeleteSet(log)}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
+                    </SwipeToDelete>
                   ))}
 
                   <div className="mt-2">
@@ -706,15 +792,10 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                       + Add set
                     </button>
                   </div>
+                  </div>
                 </Card>
               ))}
             </div>
-          ) : (
-            <Card className="mt-5 p-5">
-              <p className="py-4 text-center text-sm text-muted">
-                No exercise logs found for this session.
-              </p>
-            </Card>
           )}
 
           {/* Add exercise */}
