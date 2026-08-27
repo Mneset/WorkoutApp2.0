@@ -84,7 +84,7 @@ function StartSession() {
   };
 
   // On open: resume the in-progress session if there is one, otherwise create a new
-  // one — either way drop straight into the builder, so New Workout behaves the same
+  // one — either way drop straight into the builder, so New Session behaves the same
   // whether or not the app still had the session in memory.
   useEffect(() => {
     if (initRef.current) return; // run once (guards against StrictMode double-invoke)

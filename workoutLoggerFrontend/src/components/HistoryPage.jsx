@@ -34,7 +34,7 @@ export default function HistoryPage() {
       });
       const result = (response.data.data.result || [])
         // History shows finished sessions only; an in-progress one (no end date) is
-        // resumed from the dashboard / New Workout page, not listed here.
+        // resumed from the dashboard / New Session page, not listed here.
         .filter((s) => s.sessionDateEnd);
       result.sort((a, b) => new Date(b.sessionDateStart || 0) - new Date(a.sessionDateStart || 0));
       setSessions(result);

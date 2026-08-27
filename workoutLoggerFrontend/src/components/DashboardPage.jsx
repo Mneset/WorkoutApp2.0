@@ -477,7 +477,7 @@ export default function DashboardPage() {
           <Card className="w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg">Session in progress</h2>
             <p className="mt-1 text-sm text-muted">
-              You already have a workout in progress. Resume it, or discard it and start a new one.
+              You already have a session in progress. Resume it, or discard it and start a new one.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               <Button onClick={resumeInProgress}>Resume session</Button>

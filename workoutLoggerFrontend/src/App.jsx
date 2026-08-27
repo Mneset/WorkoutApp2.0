@@ -10,7 +10,7 @@ export default function App() {
   return (
     <Router>
       <Navbar />
-      <main>
+      <main className="pb-24 md:pb-0">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/new-session" element={<NewSessionPage />} />
