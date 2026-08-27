@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import Card from './Card';
@@ -18,6 +18,7 @@ export default function HistoryPage() {
   const [modal, setModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const autoOpenedRef = useRef(false);
 
   const toggleModal = () => setModal((open) => !open);
@@ -31,7 +32,10 @@ export default function HistoryPage() {
         params: { userId: user.sub },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const result = response.data.data.result || [];
+      const result = (response.data.data.result || [])
+        // History shows finished sessions only; an in-progress one (no end date) is
+        // resumed from the dashboard / New Workout page, not listed here.
+        .filter((s) => s.sessionDateEnd);
       result.sort((a, b) => new Date(b.sessionDateStart || 0) - new Date(a.sessionDateStart || 0));
       setSessions(result);
     } catch (err) {
@@ -134,6 +138,19 @@ export default function HistoryPage() {
                   {totalKg > 0 && (
                     <span className="text-sm font-semibold">{totalKg.toLocaleString()} kg</span>
                   )}
+                  <button
+                    className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-clay"
+                    title="Edit session"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/new-session', { state: { sessionLogId: session.id, edit: true } });
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                    </svg>
+                  </button>
                   <button
                     className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
                     title="Delete session"

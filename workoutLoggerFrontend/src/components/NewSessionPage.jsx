@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import api from '../api';
@@ -66,6 +66,32 @@ function StartSession() {
   const { handleSessionStarted } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [inProgress, setInProgress] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  // Enforce one in-progress session at a time: an in-progress session is one with a
+  // start but no end date. If one exists, offer to resume or discard it instead of
+  // silently starting a second.
+  useEffect(() => {
+    const check = async () => {
+      setChecking(true);
+      try {
+        const accessToken = await getToken();
+        const res = await api.get('/session', {
+          params: { userId: user.sub },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const sessions = res.data.data.result || [];
+        setInProgress(sessions.find((s) => !s.sessionDateEnd) || null);
+      } catch (err) {
+        console.error('Error checking for in-progress session:', err);
+      } finally {
+        setChecking(false);
+      }
+    };
+    check();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleStartSession = async (e) => {
     e.preventDefault();
@@ -88,6 +114,49 @@ function StartSession() {
       setLoading(false);
     }
   };
+
+  const discardInProgress = async () => {
+    if (!inProgress) return;
+    if (!window.confirm('This deletes your in-progress workout. Continue?')) return;
+    try {
+      const accessToken = await getToken();
+      await api.delete(`/session/${inProgress.id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setInProgress(null);
+    } catch (err) {
+      alert('Failed to discard session. Please try again.');
+      console.error('Error discarding session:', err);
+    }
+  };
+
+  if (checking) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <div className="py-16 text-center text-sm text-muted">Loading…</div>
+      </div>
+    );
+  }
+
+  if (inProgress) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <Eyebrow>Workout in progress</Eyebrow>
+        <h1 className="mt-1 text-2xl">You have an unfinished session</h1>
+        <p className="mt-1 text-muted">Pick up where you left off, or discard it to start fresh.</p>
+
+        <Card className="mt-6 p-6">
+          <div className="text-sm font-semibold">{inProgress.name || 'Untitled session'}</div>
+          <div className="mt-6 flex items-center justify-between">
+            <Button variant="danger" onClick={discardInProgress}>
+              Discard
+            </Button>
+            <Button onClick={() => handleSessionStarted(inProgress.id)}>Resume workout</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -114,7 +183,7 @@ function StartSession() {
 /* -------------------------------------------------------------------------- */
 /* Live builder view (logic preserved from sessionContent2Component.js)       */
 /* -------------------------------------------------------------------------- */
-function SessionBuilder({ sessionLogId }) {
+function SessionBuilder({ sessionLogId, editMode = false }) {
   const [exerciseId, setExerciseId] = useState();
   const [setId, setSetId] = useState(1);
   const [reps, setReps] = useState('');
@@ -243,7 +312,7 @@ function SessionBuilder({ sessionLogId }) {
         }
       );
       handleSessionEnded();
-      navigate('/');
+      navigate(editMode ? '/session-history' : '/');
     } catch (err) {
       alert('Failed to end session. Please try again.');
       console.error('Error ending session:', err);
@@ -326,8 +395,39 @@ function SessionBuilder({ sessionLogId }) {
     }
   };
 
-  const deleteExercise = async (sessionId) => {
-    // TODO: implement
+  const handleDeleteSet = async (log) => {
+    if (log.id) {
+      try {
+        const accessToken = await getToken();
+        await api.delete(`/exercise-log/${log.id}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+      } catch (err) {
+        alert('Failed to delete set. Please try again.');
+        console.error('Error deleting set:', err);
+        return;
+      }
+    }
+    setEditTableLogs((prev) => prev.filter((l) => l.id !== log.id));
+  };
+
+  const deleteExercise = async (exerciseName) => {
+    const logs = editTableLogs.filter((l) => l.Exercise?.name === exerciseName);
+    try {
+      const accessToken = await getToken();
+      for (const l of logs) {
+        if (l.id) {
+          await api.delete(`/exercise-log/${l.id}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+        }
+      }
+    } catch (err) {
+      alert('Failed to delete exercise. Please try again.');
+      console.error('Error deleting exercise:', err);
+      return;
+    }
+    setEditTableLogs((prev) => prev.filter((l) => l.Exercise?.name !== exerciseName));
   };
 
   useEffect(() => {
@@ -392,7 +492,7 @@ function SessionBuilder({ sessionLogId }) {
           {/* Header — title with an edit button that toggles inline editing */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <Eyebrow>IN PROGRESS · {formatElapsed(elapsedSeconds)}</Eyebrow>
+              <Eyebrow>{editMode ? 'EDITING SESSION' : `IN PROGRESS · ${formatElapsed(elapsedSeconds)}`}</Eyebrow>
               {editingName ? (
                 <input
                   data-title
@@ -464,7 +564,7 @@ function SessionBuilder({ sessionLogId }) {
                       title="Delete exercise"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this exercise?')) {
-                          deleteExercise(session.id);
+                          deleteExercise(exerciseName);
                         }
                       }}
                     >
@@ -473,15 +573,23 @@ function SessionBuilder({ sessionLogId }) {
                   </div>
 
                   {/* Table header */}
-                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 sm:grid-cols-[28px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
-                    <Eyebrow>Set</Eyebrow>
-                    <Eyebrow>Reps</Eyebrow>
-                    <Eyebrow>Kg</Eyebrow>
-                    <Eyebrow>RPE</Eyebrow>
-                    <Eyebrow>RIR</Eyebrow>
-                    <span className="hidden sm:block">
-                      <Eyebrow>Notes</Eyebrow>
+                  <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[28px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
+                    <span>Set</span>
+                    <span className="text-center">Reps</span>
+                    <span className="text-center">Kg</span>
+                    <span
+                      className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
+                      title="RPE — Rate of Perceived Exertion: how hard the set felt (1 easy → 10 max effort)"
+                    >
+                      RPE
                     </span>
+                    <span
+                      className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
+                      title="RIR — Reps In Reserve: how many more good reps you could have done"
+                    >
+                      RIR
+                    </span>
+                    <span className="hidden sm:block">Notes</span>
                   </div>
 
                   {/* Set rows */}
@@ -565,21 +673,31 @@ function SessionBuilder({ sessionLogId }) {
                           setEditTableLogs(updatedLogs);
                         }}
                       />
-                      <input
-                        type="text"
-                        placeholder="Notes"
-                        className={`${inputClass} col-span-full mt-1.5 sm:col-span-1 sm:mt-0`}
-                        value={log.notes || ''}
-                        onChange={(e) => {
-                          const updatedLogs = [...editTableLogs];
-                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = {
-                            ...updatedLogs[globalIndex],
-                            notes: e.target.value,
-                          };
-                          setEditTableLogs(updatedLogs);
-                        }}
-                      />
+                      <div className="col-span-full mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:mt-0">
+                        <input
+                          type="text"
+                          placeholder="Notes"
+                          className={`${inputClass} min-w-0 flex-1`}
+                          value={log.notes || ''}
+                          onChange={(e) => {
+                            const updatedLogs = [...editTableLogs];
+                            const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
+                            updatedLogs[globalIndex] = {
+                              ...updatedLogs[globalIndex],
+                              notes: e.target.value,
+                            };
+                            setEditTableLogs(updatedLogs);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          title="Delete set"
+                          onClick={() => handleDeleteSet(log)}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   ))}
 
@@ -608,11 +726,17 @@ function SessionBuilder({ sessionLogId }) {
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-2">
-            <Button variant="danger" onClick={() => handleCancelSession(session.id)}>
-              Discard session
-            </Button>
+            {editMode ? (
+              <Button variant="ghost" onClick={() => navigate('/session-history')}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="danger" onClick={() => handleCancelSession(session.id)}>
+                Discard session
+              </Button>
+            )}
             <Button onClick={handleEndSession} disabled={saving}>
-              {saving ? 'Saving…' : 'Finish session'}
+              {saving ? 'Saving…' : editMode ? 'Save changes' : 'Finish session'}
             </Button>
           </div>
         </div>
@@ -639,10 +763,18 @@ function SessionBuilder({ sessionLogId }) {
 /* -------------------------------------------------------------------------- */
 export default function NewSessionPage() {
   const { sessionStarted, sessionLogId } = useSession();
+  const location = useLocation();
 
-  if (!sessionStarted) {
+  // A session id can arrive by navigation state — resuming an in-progress session or
+  // editing a finished one — which also survives when the in-memory context is empty
+  // (e.g. after a reload). Otherwise fall back to the just-started session in context.
+  const stateId = location.state?.sessionLogId ?? null;
+  const editMode = !!location.state?.edit;
+  const activeId = stateId ?? (sessionStarted ? sessionLogId : null);
+
+  if (!activeId) {
     return <StartSession />;
   }
 
-  return <SessionBuilder sessionLogId={sessionLogId} />;
+  return <SessionBuilder key={activeId} sessionLogId={activeId} editMode={editMode} />;
 }

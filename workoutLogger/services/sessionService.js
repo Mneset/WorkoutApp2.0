@@ -105,9 +105,14 @@ class SessionService {
 
     async endSession(notes, sessionLogId, updatedLogs, name) {
     try {
+        // Finish stamps the end date once; editing a session that's already finished
+        // must keep its original end date (COALESCE), not move it to "now".
+        const existing = await this.db.SessionLog.findByPk(sessionLogId);
+        const endDate = existing?.sessionDateEnd || new Date();
+
         await this.db.SessionLog.update({
             notes: notes,
-            sessionDateEnd: new Date(),
+            sessionDateEnd: endDate,
             name: name
         }, {
             where: { id: sessionLogId },

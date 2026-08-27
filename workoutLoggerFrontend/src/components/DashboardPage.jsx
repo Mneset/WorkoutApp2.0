@@ -115,14 +115,16 @@ function planSchedule(plan, sessions) {
   };
 
   const due = soonest(0); // may be today
-  // Today's planned session counts as done if a session for that template was
-  // started today.
+  // Today's planned session counts as done only when a session for that template was
+  // started today AND finished (has an end date) — an unfinished/abandoned start must
+  // not mark the day complete.
   const todayDone =
     due?.isToday &&
     (sessions || []).some(
       (s) =>
         s.sessionTemplateId === due.id &&
         s.sessionDateStart &&
+        s.sessionDateEnd &&
         isSameDay(new Date(s.sessionDateStart), today)
     );
 
@@ -144,6 +146,10 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState([]);
   const [plan, setPlan] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [resumePrompt, setResumePrompt] = useState(null);
+
+  // A session with a start but no end date is "in progress" (only one allowed).
+  const inProgress = sessions.find((s) => !s.sessionDateEnd) || null;
 
   const now = new Date();
   const dateLabel = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -170,7 +176,7 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  const startSession = async (sessionTemplateId) => {
+  const doStartSession = async (sessionTemplateId) => {
     setStarting(true);
     try {
       const token = await getToken();
@@ -185,12 +191,74 @@ export default function DashboardPage() {
     }
   };
 
-  const recent = [...sessions]
+  // Never start a second session while one is in progress — prompt to resume/discard.
+  const startSession = (sessionTemplateId) => {
+    if (inProgress) {
+      setResumePrompt({ templateId: sessionTemplateId ?? null });
+      return;
+    }
+    doStartSession(sessionTemplateId);
+  };
+
+  const resumeInProgress = () => {
+    if (!inProgress) return;
+    handleSessionStarted(inProgress.id);
+    navigate('/new-session');
+  };
+
+  const deleteInProgress = async () => {
+    const token = await getToken();
+    await api.delete(`/session/${inProgress.id}`, { headers: { Authorization: `Bearer ${token}` } });
+  };
+
+  const discardInProgress = async () => {
+    if (!inProgress) return;
+    if (!window.confirm('This deletes your in-progress workout. Continue?')) return;
+    try {
+      await deleteInProgress();
+      loadData();
+    } catch (err) {
+      alert('Failed to discard session. Please try again.');
+      console.error('Error discarding session:', err);
+    }
+  };
+
+  const discardAndStart = async (templateId) => {
+    try {
+      if (inProgress) await deleteInProgress();
+      setResumePrompt(null);
+      doStartSession(templateId);
+    } catch (err) {
+      alert('Failed to start a new session. Please try again.');
+      console.error('Error discarding session:', err);
+    }
+  };
+
+  // History-style lists and stats use finished sessions only.
+  const finishedSessions = sessions.filter((s) => s.sessionDateEnd);
+  const recent = [...finishedSessions]
     .sort((a, b) => new Date(b.sessionDateStart || 0) - new Date(a.sessionDateStart || 0))
     .slice(0, 4);
   const schedule = planSchedule(plan, sessions);
   const next = schedule?.next;
-  const stats = computeStats(sessions);
+  const stats = computeStats(finishedSessions);
+
+  // Greeting subtitle that reflects the user's actual state instead of a generic line.
+  let subtitle;
+  if (inProgress) {
+    subtitle = 'You have a workout in progress.';
+  } else if (plan?.WorkoutPlan) {
+    const planName = plan.WorkoutPlan.name;
+    if (schedule?.todayDone) {
+      subtitle = "That's today's session done — nice work.";
+    } else if (next?.isToday) {
+      subtitle = `On your plan today: ${next.name}.`;
+    } else {
+      subtitle = `Week ${plan.currentWeek} of ${plan.WorkoutPlan.durationWeeks} · ${planName}.`;
+    }
+  } else {
+    subtitle = 'Ready when you are — start a session or set up a plan.';
+  }
   const volume =
     stats.weekVolume >= 1000
       ? { value: (stats.weekVolume / 1000).toFixed(1), unit: 't' }
@@ -208,9 +276,18 @@ export default function DashboardPage() {
         <div>
           <Eyebrow>{dateLabel}</Eyebrow>
           <h1 className="mt-2 text-3xl">{greetingFor(now.getHours())}, {user?.nickname || 'there'}</h1>
-          <p className="mt-1 text-muted">Ready when you are — start a session or pick up a plan.</p>
+          <p className="mt-1 text-muted">{subtitle}</p>
         </div>
-        <Button onClick={() => startSession()} disabled={starting}>{starting ? 'Starting…' : 'Start a session'}</Button>
+        {inProgress ? (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={discardInProgress}>Discard</Button>
+            <Button onClick={resumeInProgress}>Resume workout</Button>
+          </div>
+        ) : (
+          <Button onClick={() => startSession()} disabled={starting}>
+            {starting ? 'Starting…' : 'Start a session'}
+          </Button>
+        )}
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -335,6 +412,29 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {resumePrompt && (
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-[rgba(28,26,23,0.45)] p-6"
+          onClick={() => setResumePrompt(null)}
+        >
+          <Card className="w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg">Session in progress</h2>
+            <p className="mt-1 text-sm text-muted">
+              You already have a workout in progress. Resume it, or discard it and start a new one.
+            </p>
+            <div className="mt-6 flex flex-col gap-2">
+              <Button onClick={resumeInProgress}>Resume workout</Button>
+              <Button variant="danger" onClick={() => discardAndStart(resumePrompt.templateId)}>
+                Discard &amp; start new
+              </Button>
+              <Button variant="ghost" onClick={() => setResumePrompt(null)}>
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
