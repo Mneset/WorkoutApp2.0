@@ -684,7 +684,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                 const isCardio = logs[0]?.Exercise?.type === 'cardio';
                 return (
                 <SortableRow key={exerciseName} id={exerciseName}>
-                  {({ setNodeRef, style, handleProps, isDragging }) => (
+                  {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
                 <div ref={setNodeRef} style={style}>
                 <AccentCard
                   contentClassName="p-5"
@@ -747,6 +747,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                     </div>
                   </div>
 
+                  {!isSorting && (
+                  <>
                   {/* Table header */}
                   <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
                     <span>Set</span>
@@ -903,6 +905,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                       + Add set
                     </button>
                   </div>
+                  </>
+                  )}
                 </AccentCard>
                 </div>
                   )}

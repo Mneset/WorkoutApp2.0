@@ -392,7 +392,7 @@ export default function CreatePlanPage() {
                 ];
             return (
             <SortableRow key={ex.tempId} id={ex.tempId}>
-              {({ setNodeRef, style, handleProps, isDragging }) => (
+              {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
             <div
               ref={setNodeRef}
               style={style}
@@ -456,6 +456,7 @@ export default function CreatePlanPage() {
                 </button>
               </div>
 
+              {!isSorting && (
               <div className={`mt-2 grid grid-cols-3 gap-2 pl-7 ${isCardio ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>
                 {fields.map((f) => (
                   <label key={f.key} className="block">
@@ -497,6 +498,7 @@ export default function CreatePlanPage() {
                   </label>
                 ))}
               </div>
+              )}
             </div>
               )}
             </SortableRow>

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   DndContext,
   closestCenter,
+  MeasuringStrategy,
   MouseSensor,
   TouchSensor,
   useSensor,
@@ -41,7 +42,12 @@ export function SortableColumn({ items, onReorder, children, className = '' }) {
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+    >
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         <div className={className}>{children}</div>
       </SortableContext>
@@ -56,7 +62,7 @@ export function SortableColumn({ items, onReorder, children, className = '' }) {
  *  - isDragging — true while this row is being dragged
  */
 export function SortableRow({ id, children }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } =
     useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -65,7 +71,13 @@ export function SortableRow({ id, children }) {
     position: 'relative',
     opacity: isDragging ? 0.9 : undefined,
   };
-  return children({ setNodeRef, style, handleProps: { ...attributes, ...listeners }, isDragging });
+  return children({
+    setNodeRef,
+    style,
+    handleProps: { ...attributes, ...listeners },
+    isDragging,
+    isSorting,
+  });
 }
 
 /** Six-dot grip icon for drag handles. */
