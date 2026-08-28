@@ -34,11 +34,22 @@ module.exports = (sequelize, DataTypes) => {
         baseReps: {
             type: DataTypes.INTEGER,
             field: 'base_reps',
-            allowNull: false
+            allowNull: true
         },
         baseWeight: {
             type: DataTypes.FLOAT,
             field: 'base_weight',
+            allowNull: true
+        },
+        // Cardio base metrics (null for strength templates).
+        baseDurationSeconds: {
+            type: DataTypes.INTEGER,
+            field: 'base_duration_seconds',
+            allowNull: true
+        },
+        baseDistance: {
+            type: DataTypes.FLOAT,
+            field: 'base_distance',
             allowNull: true
         },
         baseRpe: {

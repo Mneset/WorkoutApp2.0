@@ -77,17 +77,20 @@ class SessionService {
             const exerciseLogPromises = [];
             
             sessionTemplate.ExerciseTemplates.forEach(exerciseTemplate => {
+                const isCardio = exerciseTemplate.Exercise?.type === 'cardio';
                 // Create baseSets number of exercise logs (each representing one set)
                 for (let i = 0; i < exerciseTemplate.baseSets; i++) {
                     exerciseLogPromises.push(
                         this.db.ExerciseLog.create({
                             exerciseId: exerciseTemplate.exerciseId,
                             setId: 1, // Default to normal set type (1 = normal)
-                            reps: exerciseTemplate.baseReps,
-                            weight: exerciseTemplate.baseWeight || 0,
+                            reps: isCardio ? null : exerciseTemplate.baseReps,
+                            weight: isCardio ? null : (exerciseTemplate.baseWeight || 0),
+                            durationSeconds: isCardio ? (exerciseTemplate.baseDurationSeconds ?? null) : null,
+                            distance: isCardio ? (exerciseTemplate.baseDistance ?? null) : null,
                             notes: '',
                             rpe: exerciseTemplate.baseRpe ?? null,
-                            rir: exerciseTemplate.baseRir ?? null,
+                            rir: isCardio ? null : (exerciseTemplate.baseRir ?? null),
                             sessionLogId: session.id
                         })
                     );

@@ -10,10 +10,16 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
       (duration/distance) + relaxed reps/weight, conditional session UI (separate
       "+ Add cardio" button & picker, Time/Distance/Pace cells), history-modal display.
       Needs migration `023` run on deploy.
-- [ ] **Phase 3 — Cardio in plans** (template cardio fields, CreatePlanPage, startSession)
+- [x] **Phase 3 — Cardio in plans** — template cardio base fields (duration/distance) +
+      relaxed baseReps, CreatePlanPage branches its row inputs by exercise type, and
+      startSession pre-creates cardio logs from cardio templates. Needs migration `024`.
 
 ## Backlog / ideas
 
+- **Plan builder exercise selection** — CreatePlanPage still picks exercises from a plain
+  `<select>` listing all ~873 exercises, which is now unwieldy (and cardio is buried in it).
+  Replace it with the same **"+ Add exercise" / "+ Add cardio" picker modal** the session
+  builder uses (`ExercisePickerModal`), so plan exercises are searchable/scoped by type.
 - **Exercise descriptions + images** — free-exercise-db includes step-by-step `instructions`
   (text) and `images` (~2 photos/exercise: start/end position). Add an `instructions` TEXT
   column + store image paths, re-seed from the dataset (raw file still available), and show

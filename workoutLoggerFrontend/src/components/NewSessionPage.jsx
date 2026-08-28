@@ -678,7 +678,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                   {/* Set rows */}
                   {logs.map((log, index) => (
                     <SwipeToDelete
-                      key={`${session.id}-${log.exerciseId}-${index}`}
+                      key={log.id ?? `tmp-${index}`}
                       enabled={coarse}
                       onDelete={() => handleDeleteSet(log)}
                     >

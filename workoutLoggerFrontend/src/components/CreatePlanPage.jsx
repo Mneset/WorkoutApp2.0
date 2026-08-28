@@ -5,6 +5,7 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 import ScoreSelect from './ScoreSelect';
+import { parseDuration, formatTimeInput } from '../duration';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -74,6 +75,12 @@ export default function CreatePlanPage() {
     );
   };
 
+  // Look up an exercise's log type ('strength' | 'cardio') by id.
+  const exerciseType = (id) => {
+    const e = exercises.find((x) => x.id === Number(id));
+    return e?.type === 'cardio' ? 'cardio' : 'strength';
+  };
+
   const addExerciseToTemplate = (templateTempId) => {
     setSessionTemplates((prev) =>
       prev.map((s) => {
@@ -88,6 +95,8 @@ export default function CreatePlanPage() {
               baseSets: '',
               baseReps: '',
               baseWeight: '',
+              baseDurationSeconds: '',
+              baseDistance: '',
               baseRpe: '',
               baseRir: '',
             },
@@ -142,7 +151,16 @@ export default function CreatePlanPage() {
         return;
       }
       for (const ex of st.exercises) {
-        if (!(Number(ex.baseSets) >= 1) || !(Number(ex.baseReps) >= 1)) {
+        if (!(Number(ex.baseSets) >= 1)) {
+          setError('Every exercise needs at least 1 set');
+          return;
+        }
+        if (exerciseType(ex.exerciseId) === 'cardio') {
+          if (!parseDuration(ex.baseDurationSeconds) && !(Number(ex.baseDistance) > 0)) {
+            setError('Every cardio entry needs a time or distance');
+            return;
+          }
+        } else if (!(Number(ex.baseReps) >= 1)) {
           setError('Every exercise needs sets and reps (at least 1)');
           return;
         }
@@ -187,6 +205,7 @@ export default function CreatePlanPage() {
         // 3. Create exercise templates for each session
         for (let j = 0; j < st.exercises.length; j++) {
           const ex = st.exercises[j];
+          const isCardio = exerciseType(ex.exerciseId) === 'cardio';
           await api.post(
             '/exercise-template',
             {
@@ -194,10 +213,17 @@ export default function CreatePlanPage() {
               exerciseId: Number(ex.exerciseId),
               orderIndex: j,
               baseSets: Number(ex.baseSets),
-              baseReps: Number(ex.baseReps),
-              baseWeight: Number(ex.baseWeight) || null,
               baseRpe: numOrNull(ex.baseRpe),
-              baseRir: numOrNull(ex.baseRir),
+              ...(isCardio
+                ? {
+                    baseDurationSeconds: parseDuration(ex.baseDurationSeconds),
+                    baseDistance: numOrNull(ex.baseDistance),
+                  }
+                : {
+                    baseReps: Number(ex.baseReps),
+                    baseWeight: Number(ex.baseWeight) || null,
+                    baseRir: numOrNull(ex.baseRir),
+                  }),
             },
             { headers }
           );
@@ -306,7 +332,23 @@ export default function CreatePlanPage() {
             </div>
           </div>
 
-          {st.exercises.map((ex, idx) => (
+          {st.exercises.map((ex, idx) => {
+            const isCardio = exerciseType(ex.exerciseId) === 'cardio';
+            const fields = isCardio
+              ? [
+                  { key: 'baseSets', label: 'Sets', min: '1' },
+                  { key: 'baseDurationSeconds', label: 'Time', time: true },
+                  { key: 'baseDistance', label: 'Km', min: '0', step: '0.01' },
+                  { key: 'baseRpe', label: 'RPE', options: RPE_OPTIONS },
+                ]
+              : [
+                  { key: 'baseSets', label: 'Sets', min: '1' },
+                  { key: 'baseReps', label: 'Reps', min: '1' },
+                  { key: 'baseWeight', label: 'Weight', min: '0' },
+                  { key: 'baseRpe', label: 'RPE', options: RPE_OPTIONS },
+                  { key: 'baseRir', label: 'RIR', options: RIR_OPTIONS },
+                ];
+            return (
             <div key={ex.tempId} className="mb-2 rounded-lg border border-line px-3.5 py-3">
               <div className="flex items-center gap-3">
                 <span className="w-4 shrink-0 font-semibold text-clay">{idx + 1}</span>
@@ -332,14 +374,8 @@ export default function CreatePlanPage() {
                 </button>
               </div>
 
-              <div className="mt-2 grid grid-cols-3 gap-2 pl-7 sm:grid-cols-5">
-                {[
-                  { key: 'baseSets', label: 'Sets', min: '1' },
-                  { key: 'baseReps', label: 'Reps', min: '1' },
-                  { key: 'baseWeight', label: 'Weight', min: '0' },
-                  { key: 'baseRpe', label: 'RPE', options: RPE_OPTIONS },
-                  { key: 'baseRir', label: 'RIR', options: RIR_OPTIONS },
-                ].map((f) => (
+              <div className={`mt-2 grid grid-cols-3 gap-2 pl-7 ${isCardio ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>
+                {fields.map((f) => (
                   <label key={f.key} className="block">
                     <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted">
                       {f.label}
@@ -349,6 +385,17 @@ export default function CreatePlanPage() {
                         value={ex[f.key]}
                         options={f.options}
                         onChange={(v) => updateExerciseInTemplate(st.tempId, ex.tempId, f.key, v)}
+                      />
+                    ) : f.time ? (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="mm:ss"
+                        className={`${inputClass} w-full text-center`}
+                        value={ex[f.key]}
+                        onChange={(e) =>
+                          updateExerciseInTemplate(st.tempId, ex.tempId, f.key, formatTimeInput(e.target.value))
+                        }
                       />
                     ) : (
                       <input
@@ -369,7 +416,8 @@ export default function CreatePlanPage() {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
 
           <button
             className="w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint"

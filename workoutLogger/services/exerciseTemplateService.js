@@ -13,19 +13,10 @@ class ExerciseTemplateService {
         return exerciseTemplate;
     }
     
-    async addExerciseTemplate(sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseRpe, baseRir) {
-        const exerciseTemplate = await this.db.ExerciseTemplate.create({
-            sessionTemplateId: sessionTemplateId,
-            exerciseId: exerciseId,
-            orderIndex: orderIndex,
-            baseSets: baseSets,
-            baseReps: baseReps,
-            baseWeight: baseWeight,
-            baseRpe: baseRpe,
-            baseRir: baseRir
-        })
-
-        return exerciseTemplate;
+    // data: { sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight,
+    //         baseDurationSeconds, baseDistance, baseRpe, baseRir }
+    async addExerciseTemplate(data) {
+        return await this.db.ExerciseTemplate.create(data);
     }
 
     async updateExerciseTemplate(id, updateData) {

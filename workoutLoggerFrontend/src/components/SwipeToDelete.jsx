@@ -1,17 +1,21 @@
 import React, { useRef, useState } from 'react';
 
 /**
- * Full-swipe-to-delete row (touch only). Drag the row left: a red Delete panel
- * fills the whole width behind it. Release past the halfway point and it commits
- * the delete (sliding fully out); release short of halfway and it snaps back.
+ * Full-swipe-to-delete row (touch only). Drag the row left: a red Delete panel fills
+ * the width behind it. Release past the halfway point and it commits (slides out, then
+ * the caller removes the row); release short of halfway and it snaps back.
  *
- * When `enabled` is false (mouse/desktop) it just renders the row untouched and
- * the caller provides its own delete button.
+ * The live offset is tracked in a ref (not just state) so the release decision reads the
+ * actual final position rather than a stale batched value — otherwise a fast swipe could
+ * end up stuck at full-red without committing.
+ *
+ * When `enabled` is false (mouse/desktop) it renders the row untouched and the caller
+ * provides its own delete button.
  */
 export default function SwipeToDelete({ onDelete, enabled = true, children }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const [committing, setCommitting] = useState(false);
+  const dxRef = useRef(0);
   const start = useRef(null);
   const dir = useRef(null); // 'h' | 'v' | null — locked after the first move
   const containerRef = useRef(null);
@@ -19,22 +23,18 @@ export default function SwipeToDelete({ onDelete, enabled = true, children }) {
 
   if (!enabled) return <>{children}</>;
 
+  const move = (v) => {
+    dxRef.current = v;
+    setDx(v);
+  };
+
   const onTouchStart = (e) => {
     const t = e.touches[0];
     widthRef.current = containerRef.current?.offsetWidth || 0;
     start.current = { x: t.clientX, y: t.clientY };
     dir.current = null;
-    // Clear any leftover/stuck state so a fresh swipe always starts clean.
-    setCommitting(false);
-    setDx(0);
+    move(0); // clear any leftover offset so a fresh swipe starts clean
     setDragging(true);
-  };
-
-  const onTouchCancel = () => {
-    setDragging(false);
-    setCommitting(false);
-    setDx(0);
-    start.current = null;
   };
 
   const onTouchMove = (e) => {
@@ -51,25 +51,23 @@ export default function SwipeToDelete({ onDelete, enabled = true, children }) {
     let next = dX;
     if (next > 0) next = 0;
     if (next < min) next = min;
-    setDx(next);
+    move(next);
   };
 
-  const onTouchEnd = () => {
+  const finish = () => {
     setDragging(false);
-    const w = widthRef.current || 0;
-    if (w && dx <= -w / 2) {
-      // Past halfway → commit: slide fully out, then remove.
-      setCommitting(true);
-      setDx(-w);
-      window.setTimeout(() => onDelete(), 180);
-    } else {
-      setDx(0);
-    }
     start.current = null;
+    const w = widthRef.current || 0;
+    if (w && dxRef.current <= -w / 2) {
+      move(-w); // slide fully out
+      onDelete(); // caller removes the row optimistically → this unmounts
+    } else {
+      move(0); // snap back
+    }
   };
 
   const w = widthRef.current || 0;
-  const past = committing || (w > 0 && dx <= -w / 2);
+  const past = w > 0 && dx <= -w / 2;
 
   return (
     <div ref={containerRef} className="relative overflow-hidden rounded-xl">
@@ -85,8 +83,8 @@ export default function SwipeToDelete({ onDelete, enabled = true, children }) {
         style={{ transform: `translateX(${dx}px)` }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchCancel}
+        onTouchEnd={finish}
+        onTouchCancel={finish}
       >
         {children}
       </div>
