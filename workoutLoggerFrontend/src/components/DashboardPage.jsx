@@ -342,7 +342,7 @@ export default function DashboardPage() {
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         {statCards.map((c) => (
-          <Card key={c.label} className="p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+          <Card key={c.label} className="p-5">
             <div className="flex items-start justify-between gap-2">
               <Eyebrow>{c.label}</Eyebrow>
               <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-clay-tint text-clay">

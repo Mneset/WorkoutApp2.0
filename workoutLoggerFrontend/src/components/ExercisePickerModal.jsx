@@ -4,39 +4,36 @@ import Card from './Card';
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
-function ExercisePickerModal({ exercises = [], onSelect, onClose }) {
+// `type` scopes the list: 'strength' (the default) or 'cardio' — each has its own picker.
+function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'strength' }) {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [selectedMuscle, setSelectedMuscle] = useState('');
 
   useEffect(() => {
     document.body.classList.add('modal-open');
-
     return () => {
       document.body.classList.remove('modal-open');
     };
   }, []);
 
-  const filteredExercises = exercises.filter((ex) => {
-    const matchesName = ex.name.toLowerCase().includes(search.toLowerCase());
+  const isCardio = type === 'cardio';
+  const ofType = exercises.filter((ex) => (ex.type === 'cardio' ? 'cardio' : 'strength') === type);
 
+  const filteredExercises = ofType.filter((ex) => {
+    const matchesName = ex.name.toLowerCase().includes(search.toLowerCase());
     const matchesMuscle =
       selectedMuscle === '' ||
       (ex.TargetMuscles &&
-        ex.TargetMuscles.some(
-          (muscle) => muscle.name.toLowerCase() === selectedMuscle.toLowerCase()
-        ));
-
+        ex.TargetMuscles.some((muscle) => muscle.name.toLowerCase() === selectedMuscle.toLowerCase()));
     return matchesName && matchesMuscle;
   });
 
-  // Get unique target muscles for the dropdown
-  const allTargetMuscles = exercises.reduce((muscles, ex) => {
+  // Target muscles present in this picker's exercises (strength only uses the filter).
+  const allTargetMuscles = ofType.reduce((muscles, ex) => {
     if (ex.TargetMuscles) {
       ex.TargetMuscles.forEach((muscle) => {
-        if (!muscles.some((m) => m.name === muscle.name)) {
-          muscles.push(muscle);
-        }
+        if (!muscles.some((m) => m.name === muscle.name)) muscles.push(muscle);
       });
     }
     return muscles;
@@ -58,7 +55,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg">Select an exercise</h2>
+          <h2 className="text-lg">{isCardio ? 'Select a cardio exercise' : 'Select an exercise'}</h2>
           <button
             className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
             onClick={onClose}
@@ -70,23 +67,25 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose }) {
         <div className="mb-4 flex flex-col gap-3">
           <input
             type="text"
-            placeholder="Search exercises..."
+            placeholder={isCardio ? 'Search cardio...' : 'Search exercises...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={inputClass}
           />
-          <select
-            value={selectedMuscle}
-            onChange={(e) => setSelectedMuscle(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">All Target Muscles</option>
-            {allTargetMuscles.map((muscle) => (
-              <option key={muscle.id} value={muscle.name}>
-                {muscle.name}
-              </option>
-            ))}
-          </select>
+          {!isCardio && (
+            <select
+              value={selectedMuscle}
+              onChange={(e) => setSelectedMuscle(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">All Target Muscles</option>
+              {allTargetMuscles.map((muscle) => (
+                <option key={muscle.id} value={muscle.name}>
+                  {muscle.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div>
@@ -99,7 +98,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose }) {
               }`}
             >
               <div className="text-sm font-medium">{ex.name}</div>
-              {ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
+              {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
                 <div className="mt-0.5 text-xs text-muted">
                   {ex.TargetMuscles.map((m) => m.name).join(', ')}
                 </div>

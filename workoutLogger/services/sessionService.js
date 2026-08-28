@@ -124,6 +124,8 @@ class SessionService {
                     {
                         reps: log.reps,
                         weight: log.weight,
+                        durationSeconds: log.durationSeconds,
+                        distance: log.distance,
                         notes: log.notes,
                         rpe: log.rpe,
                         rir: log.rir

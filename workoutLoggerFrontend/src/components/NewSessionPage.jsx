@@ -10,6 +10,7 @@ import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
 import AccentCard from './AccentCard';
 import { partOfDay } from '../timeOfDay';
+import { parseDuration, formatDuration, formatTimeInput, pace } from '../duration';
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
@@ -153,7 +154,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const [editingName, setEditingName] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
-  const [modal, setModal] = useState(false);
+  const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
   const [tempIdCounter, setTempIdCounter] = useState(10000);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -211,9 +212,6 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     fetchData();
   }, [getToken]);
 
-  const toggleModal = () => {
-    setModal(!modal);
-  };
 
   const handleGetSession = async () => {
     setLoading(true);
@@ -224,7 +222,13 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       setSession(response.data.data.result);
-      setEditTableLogs(response.data.data.result.ExerciseLogs);
+      // Cardio durations are stored as seconds; show them as "mm:ss" in the inputs.
+      setEditTableLogs(
+        (response.data.data.result.ExerciseLogs || []).map((l) => ({
+          ...l,
+          durationSeconds: formatDuration(l.durationSeconds),
+        }))
+      );
     } catch (err) {
       console.error('Error getting current session:', err);
       if (editMode) {
@@ -241,29 +245,28 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     }
   };
 
-  const handleAddExercise = async (id, exerciseName) => {
+  const handleAddExercise = async (exercise) => {
+    const isCardio = exercise.type === 'cardio';
     try {
       const accessToken = await getToken();
-      const response = await api.post(
-        '/exercise-log',
-        { exerciseId: id, setId, reps, weight, notes, sessionLogId },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      const payload = isCardio
+        ? { exerciseId: exercise.id, setId, durationSeconds: null, distance: null, notes, sessionLogId }
+        : { exerciseId: exercise.id, setId, reps, weight, notes, sessionLogId };
+      const response = await api.post('/exercise-log', payload, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
       const newLog = response.data.data.result;
       const logEntry = {
         id: newLog.id,
-        exerciseId: id,
+        exerciseId: exercise.id,
         setId,
-        reps,
-        weight,
         notes,
         rpe: null,
         rir: null,
         sessionLogId,
-        Exercise: { name: exerciseName },
+        Exercise: { name: exercise.name, type: exercise.type },
+        ...(isCardio ? { durationSeconds: '', distance: '' } : { reps, weight }),
       };
 
       setTempIdCounter((prev) => prev - 1);
@@ -271,6 +274,36 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     } catch (err) {
       alert('Failed to add exercise. Please try again.');
       console.error('Error adding exercise to session:', err);
+    }
+  };
+
+  // Patch one log row in place by id.
+  const updateLog = (log, patch) => {
+    setEditTableLogs((prev) => {
+      const i = prev.findIndex((l) => l.id === log.id);
+      if (i === -1) return prev;
+      const next = [...prev];
+      next[i] = { ...next[i], ...patch };
+      return next;
+    });
+  };
+
+  // Save the cardio metric fields for one log (mirror of the reps input's onBlur).
+  const saveCardioFields = async (log, patch) => {
+    if (!log.id) return;
+    try {
+      const accessToken = await getToken();
+      await api.put(
+        `/exercise-log/${log.id}`,
+        {
+          durationSeconds: parseDuration(patch.durationSeconds ?? log.durationSeconds),
+          distance: numOrNull(patch.distance ?? log.distance),
+          notes: log.notes,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+    } catch (err) {
+      console.error('Failed to save:', err);
     }
   };
 
@@ -283,7 +316,18 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         `/session/${sessionLogId}`,
         {
           notes: sessionNotes,
-          updatedLogs: editTableLogs.map((l) => ({ ...l, rpe: numOrNull(l.rpe), rir: numOrNull(l.rir) })),
+          updatedLogs: editTableLogs.map((l) => {
+            const isCardio = l.Exercise?.type === 'cardio';
+            return {
+              ...l,
+              rpe: numOrNull(l.rpe),
+              rir: numOrNull(l.rir),
+              reps: isCardio ? null : l.reps,
+              weight: isCardio ? null : l.weight,
+              durationSeconds: isCardio ? parseDuration(l.durationSeconds) : null,
+              distance: isCardio ? numOrNull(l.distance) : null,
+            };
+          }),
           name: sessionName,
         },
         {
@@ -317,21 +361,19 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const saveAllEdits = async () => {
     const accessToken = await getToken();
     for (const log of editTableLogs) {
-      if (log.id) {
-        await api.put(
-          `/exercise-log/${log.id}`,
-          {
-            reps: log.reps,
-            weight: log.weight,
-            notes: log.notes,
-            rpe: numOrNull(log.rpe),
-            rir: numOrNull(log.rir),
-          },
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        );
-      }
+      if (!log.id) continue;
+      const isCardio = log.Exercise?.type === 'cardio';
+      const body = {
+        notes: log.notes,
+        rpe: numOrNull(log.rpe),
+        rir: numOrNull(log.rir),
+        ...(isCardio
+          ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
+          : { reps: log.reps, weight: log.weight }),
+      };
+      await api.put(`/exercise-log/${log.id}`, body, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
     }
   };
 
@@ -345,17 +387,19 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     try {
       await saveAllEdits();
       const accessToken = await getToken();
+      const isCardio = lastLog.Exercise?.type === 'cardio';
       const response = await api.post(
         '/exercise-log',
         {
           exerciseId: lastLog.exerciseId,
           setId: lastLog.setId,
-          reps: lastLog.reps,
-          weight: lastLog.weight,
           notes: lastLog.notes,
           rpe: numOrNull(lastLog.rpe),
           rir: numOrNull(lastLog.rir),
           sessionLogId,
+          ...(isCardio
+            ? { durationSeconds: parseDuration(lastLog.durationSeconds), distance: numOrNull(lastLog.distance) }
+            : { reps: lastLog.reps, weight: lastLog.weight }),
         },
         {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -365,7 +409,9 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       const newLog = {
         ...lastLog,
         id: response.data.data.result.id,
-        setId: lastLog.setId + 1,
+        // setId is the set TYPE (FK to the 8 set-type rows), not a counter — keep it
+        // constant so there's no artificial cap on sets per exercise.
+        setId: lastLog.setId,
       };
       setEditTableLogs((prevLogs) => [...prevLogs, newLog]);
     } catch (err) {
@@ -582,14 +628,16 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
               RPE = perceived exertion (1–10) · RIR = reps in reserve
             </p>
             <div className="mt-2 flex flex-col gap-5 sm:mt-5">
-              {groupedLogs.map(([exerciseName, logs]) => (
+              {groupedLogs.map(([exerciseName, logs]) => {
+                const isCardio = logs[0]?.Exercise?.type === 'cardio';
+                return (
                 <AccentCard key={exerciseName} contentClassName="p-5">
                   <div className="mb-3 flex items-start justify-between">
                     <div>
                       <div className="font-semibold text-ink">{exerciseName}</div>
-                      {logs[0]?.Exercise?.muscleGroup && (
+                      {isCardio && (
                         <span className="mt-1 inline-block rounded-full bg-clay-tint px-2 py-0.5 text-[11px] font-semibold text-clay">
-                          {logs[0].Exercise.muscleGroup}
+                          Cardio
                         </span>
                       )}
                     </div>
@@ -609,20 +657,24 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                   {/* Table header */}
                   <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
                     <span>Set</span>
-                    <span className="text-center">Reps</span>
-                    <span className="text-center">Kg</span>
+                    <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
+                    <span className="text-center">{isCardio ? 'Km' : 'Kg'}</span>
                     <span
                       className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
                       title="RPE — Rate of Perceived Exertion: how hard the set felt (1 easy → 10 max effort)"
                     >
                       RPE
                     </span>
-                    <span
-                      className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
-                      title="RIR — Reps In Reserve: how many more good reps you could have done"
-                    >
-                      RIR
-                    </span>
+                    {isCardio ? (
+                      <span className="text-center">Pace</span>
+                    ) : (
+                      <span
+                        className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
+                        title="RIR — Reps In Reserve: how many more good reps you could have done"
+                      >
+                        RIR
+                      </span>
+                    )}
                     <span className="hidden sm:block">Notes</span>
                   </div>
 
@@ -643,80 +695,85 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                           {index + 1}
                         </span>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="–"
-                        className={numInputClass}
-                        value={log.reps}
-                        onChange={(e) => {
-                          if (Number(e.target.value) < 0) return;
-                          const updatedLogs = [...editTableLogs];
-                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = {
-                            ...updatedLogs[globalIndex],
-                            reps: e.target.value,
-                          };
-                          setEditTableLogs(updatedLogs);
-                        }}
-                        onBlur={async (e) => {
-                          if (log.id) {
+                      {isCardio ? (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="mm:ss"
+                          className={numInputClass}
+                          value={log.durationSeconds || ''}
+                          onChange={(e) => updateLog(log, { durationSeconds: formatTimeInput(e.target.value) })}
+                          onBlur={() => saveCardioFields(log, {})}
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="–"
+                          className={numInputClass}
+                          value={log.reps}
+                          onChange={(e) => {
+                            if (Number(e.target.value) < 0) return;
+                            updateLog(log, { reps: e.target.value });
+                          }}
+                          onBlur={async (e) => {
+                            if (!log.id) return;
                             try {
                               const accessToken = await getToken();
                               await api.put(
                                 `/exercise-log/${log.id}`,
-                                {
-                                  reps: e.target.value,
-                                  weight: log.weight,
-                                  notes: log.notes,
-                                },
-                                {
-                                  headers: { Authorization: `Bearer ${accessToken}` },
-                                }
+                                { reps: e.target.value, weight: log.weight, notes: log.notes },
+                                { headers: { Authorization: `Bearer ${accessToken}` } }
                               );
                             } catch (err) {
                               console.error('Failed to save:', err);
                             }
-                          }
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="–"
-                        className={numInputClass}
-                        value={log.weight}
-                        onChange={(e) => {
-                          if (Number(e.target.value) < 0) return;
-                          const updatedLogs = [...editTableLogs];
-                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = {
-                            ...updatedLogs[globalIndex],
-                            weight: e.target.value,
-                          };
-                          setEditTableLogs(updatedLogs);
-                        }}
-                      />
+                          }}
+                        />
+                      )}
+                      {isCardio ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="–"
+                          className={numInputClass}
+                          value={log.distance ?? ''}
+                          onChange={(e) => {
+                            if (Number(e.target.value) < 0) return;
+                            updateLog(log, { distance: e.target.value });
+                          }}
+                          onBlur={() => saveCardioFields(log, {})}
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="–"
+                          className={numInputClass}
+                          value={log.weight}
+                          onChange={(e) => {
+                            if (Number(e.target.value) < 0) return;
+                            updateLog(log, { weight: e.target.value });
+                          }}
+                        />
+                      )}
                       <ScoreSelect
                         value={log.rpe ?? ''}
                         options={RPE_OPTIONS}
-                        onChange={(v) => {
-                          const updatedLogs = [...editTableLogs];
-                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = { ...updatedLogs[globalIndex], rpe: v };
-                          setEditTableLogs(updatedLogs);
-                        }}
+                        onChange={(v) => updateLog(log, { rpe: v })}
                       />
-                      <ScoreSelect
-                        value={log.rir ?? ''}
-                        options={RIR_OPTIONS}
-                        onChange={(v) => {
-                          const updatedLogs = [...editTableLogs];
-                          const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                          updatedLogs[globalIndex] = { ...updatedLogs[globalIndex], rir: v };
-                          setEditTableLogs(updatedLogs);
-                        }}
-                      />
+                      {isCardio ? (
+                        <div className="grid place-items-center text-center text-sm text-muted">
+                          {pace(parseDuration(log.durationSeconds), log.distance) || '–'}
+                        </div>
+                      ) : (
+                        <ScoreSelect
+                          value={log.rir ?? ''}
+                          options={RIR_OPTIONS}
+                          onChange={(v) => updateLog(log, { rir: v })}
+                        />
+                      )}
                       <div className="col-span-4 col-start-2 mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:col-start-auto sm:mt-0">
                         <input
                           type="text"
@@ -754,15 +811,19 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                     </button>
                   </div>
                 </AccentCard>
-              ))}
+                );
+              })}
             </div>
             </>
           )}
 
-          {/* Add exercise */}
-          <div className="mt-5">
-            <button className={dashedButtonClass} onClick={() => toggleModal()}>
+          {/* Add exercise / cardio */}
+          <div className="mt-5 flex flex-col gap-2">
+            <button className={dashedButtonClass} onClick={() => setPickerType('strength')}>
               + Add exercise
+            </button>
+            <button className={dashedButtonClass} onClick={() => setPickerType('cardio')}>
+              + Add cardio
             </button>
           </div>
 
@@ -784,16 +845,12 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         </div>
       )}
 
-      {modal && (
+      {pickerType && (
         <ExercisePickerModal
+          type={pickerType}
           exercises={exercises}
-          onClose={toggleModal}
-          onSelect={(exercise) => {
-            setExerciseId(exercise.id);
-            setSelectedExerciseName(exercise.name);
-            handleAddExercise(exercise.id, exercise.name);
-            setShowAddExerciseForm(true);
-          }}
+          onClose={() => setPickerType(null)}
+          onSelect={(exercise) => handleAddExercise(exercise)}
         />
       )}
     </div>

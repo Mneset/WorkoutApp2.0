@@ -11,7 +11,7 @@ import React from 'react';
 export default function AccentCard({ className = '', contentClassName = 'p-6', children, ...props }) {
   return (
     <div
-      className={`group overflow-hidden rounded-2xl bg-surface shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${className}`}
+      className={`group overflow-hidden rounded-2xl bg-surface shadow-sm ${className}`}
       {...props}
     >
       <div className="h-1.5 w-full shrink-0 bg-gradient-to-r from-clay via-clay-hover to-clay" />

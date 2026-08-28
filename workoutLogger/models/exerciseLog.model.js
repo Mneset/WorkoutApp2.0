@@ -17,11 +17,21 @@ module.exports = (sequelize, DataTypes) => {
         },
         reps: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
         },
         weight: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true
+        },
+        // Cardio metrics (null for strength logs).
+        durationSeconds: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: 'duration_seconds'
+        },
+        distance: {
+            type: DataTypes.FLOAT,
+            allowNull: true
         },
         notes: {
             type: DataTypes.TEXT,

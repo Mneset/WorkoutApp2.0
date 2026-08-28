@@ -3,31 +3,19 @@ class ExerciseLogService {
         this.db = db;
     }
 
-    async addExerciseLogToSession(exerciseId, setId, reps, weight, notes, rpe, rir, sessionLogId) {
+    // data: { exerciseId, setId, reps, weight, durationSeconds, distance, notes, rpe, rir, sessionLogId }
+    async addExerciseLogToSession(data) {
         try {
-            const exerciseLog = await this.db.ExerciseLog.create({
-                exerciseId,
-                setId,
-                reps,
-                weight,
-                notes,
-                rpe,
-                rir,
-                sessionLogId
-            })
-            return exerciseLog
+            return await this.db.ExerciseLog.create(data);
         } catch (error) {
             throw error;
         }
     }
 
-    async updateExerciseLog(exerciseLogId, reps, weight, notes, rpe, rir) {
+    // data: { reps, weight, durationSeconds, distance, notes, rpe, rir }
+    async updateExerciseLog(exerciseLogId, data) {
         try {
-            const exerciseLog = await this.db.ExerciseLog.update(
-                { reps, weight, notes, rpe, rir },
-                { where: { id: exerciseLogId } }
-            );
-            return exerciseLog;
+            return await this.db.ExerciseLog.update(data, { where: { id: exerciseLogId } });
         } catch (error) {
             throw error;
         }

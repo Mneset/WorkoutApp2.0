@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import Card from './Card';
+import { formatDuration, pace } from '../duration';
 
 export default function FullSessionModal({ session, onClose }) {
   useEffect(() => {
@@ -90,13 +91,15 @@ export default function FullSessionModal({ session, onClose }) {
         {/* Exercises */}
         {logs.length > 0 ? (
           <div className="flex flex-col gap-4">
-            {Object.entries(grouped).map(([exerciseName, exerciseLogs]) => (
+            {Object.entries(grouped).map(([exerciseName, exerciseLogs]) => {
+              const isCardio = exerciseLogs[0]?.Exercise?.type === 'cardio';
+              return (
               <div key={exerciseName} className="overflow-hidden rounded-xl border border-line">
                 <div className="flex items-center justify-between gap-2 border-b border-line bg-surface-2 px-4 py-2.5">
                   <div className="min-w-0 truncate text-sm font-semibold">{exerciseName}</div>
-                  {exerciseLogs[0]?.Exercise?.muscleGroup && (
+                  {isCardio && (
                     <span className="flex-shrink-0 rounded-full bg-clay-tint px-2 py-0.5 text-[10px] font-semibold text-clay">
-                      {exerciseLogs[0].Exercise.muscleGroup}
+                      Cardio
                     </span>
                   )}
                 </div>
@@ -110,11 +113,20 @@ export default function FullSessionModal({ session, onClose }) {
                         {index + 1}
                       </span>
                       <div className="min-w-0 text-ink">
-                        <span>
-                          {log.reps} reps × {log.weight} kg
-                          {log.rpe != null && log.rpe !== '' ? ` · RPE ${log.rpe}` : ''}
-                          {log.rir != null && log.rir !== '' ? ` · ${log.rir} RIR` : ''}
-                        </span>
+                        {isCardio ? (
+                          <span>
+                            {formatDuration(log.durationSeconds) || '–'}
+                            {log.distance != null ? ` · ${log.distance} km` : ''}
+                            {pace(log.durationSeconds, log.distance) ? ` · ${pace(log.durationSeconds, log.distance)}` : ''}
+                            {log.rpe != null && log.rpe !== '' ? ` · RPE ${log.rpe}` : ''}
+                          </span>
+                        ) : (
+                          <span>
+                            {log.reps} reps × {log.weight} kg
+                            {log.rpe != null && log.rpe !== '' ? ` · RPE ${log.rpe}` : ''}
+                            {log.rir != null && log.rir !== '' ? ` · ${log.rir} RIR` : ''}
+                          </span>
+                        )}
                         {log.notes ? (
                           <div className="mt-0.5 whitespace-pre-wrap text-xs text-muted [overflow-wrap:anywhere]">{log.notes}</div>
                         ) : null}
@@ -123,7 +135,8 @@ export default function FullSessionModal({ session, onClose }) {
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="py-6 text-center text-sm text-muted">

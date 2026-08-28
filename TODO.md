@@ -2,13 +2,36 @@
 
 Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardio type).
 
-## In progress
+## In progress / next
 
-- [ ] **Phase 1 — Expand exercise library** (more strength exercises via an additive seeder)
-- [ ] **Phase 2 — Cardio type + logging in sessions** (type column, cardio log fields,
-      conditional UI/display, seed cardio exercises)
+- [x] **Phase 1 — Expand exercise library** — 873 exercises from free-exercise-db, seeded &
+      live on the Pi. (`type` migration, dataset seeder, `exercise-library.json`.)
+- [x] **Phase 2 — Cardio type + logging in sessions** — cardio log columns
+      (duration/distance) + relaxed reps/weight, conditional session UI (separate
+      "+ Add cardio" button & picker, Time/Distance/Pace cells), history-modal display.
+      Needs migration `023` run on deploy.
 - [ ] **Phase 3 — Cardio in plans** (template cardio fields, CreatePlanPage, startSession)
 
 ## Backlog / ideas
 
-_(empty — add new items here)_
+- **Exercise descriptions + images** — free-exercise-db includes step-by-step `instructions`
+  (text) and `images` (~2 photos/exercise: start/end position). Add an `instructions` TEXT
+  column + store image paths, re-seed from the dataset (raw file still available), and show
+  them in an exercise detail view / expandable picker row. Load images from jsDelivr CDN
+  (`https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises/<path>`) rather than
+  bundling ~1700 files.
+- **Favorite exercises** — let the user star exercises and show a **Favorites** section at
+  the top of the exercise picker (`ExercisePickerModal.jsx`). Needs persistence: cleanest
+  is a backend join table `user_favorite_exercises (user_id, exercise_id)` + a
+  model/migration/service/route + a star toggle in the picker. (localStorage is a simpler
+  per-device fallback but won't sync across devices.)
+- **Alphabetical letter headers in the picker** — sort the exercise list A→Z and insert a
+  sticky letter header before each group (A, B, C …) so the now-large list feels organised
+  (`ExercisePickerModal.jsx`: sort `filteredExercises` by name, group by first letter,
+  render a header per group). Favorites section sits above the A–Z list.
+- **Filter/sort by primary movers** — the seed merged primary + secondary muscles into one
+  `TargetMuscles` list, so the muscle filter currently matches any exercise where the muscle
+  appears at all (even as a secondary mover). To filter/sort by the *primary* mover, preserve
+  the distinction: add an `is_primary` flag to the `exercisetargetmuscles` join, re-seed from
+  the dataset's `primaryMuscles`/`secondaryMuscles`, include it in `getAllExercises`, and have
+  the picker filter/sort on primary. (Backend join migration + seeder + `ExercisePickerModal.jsx`.)
