@@ -23,6 +23,12 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: true
         },
+        // Per-exercise display order within the session (shared across an exercise's sets).
+        orderIndex: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: 'order_index'
+        },
         // Cardio metrics (null for strength logs).
         durationSeconds: {
             type: DataTypes.INTEGER,

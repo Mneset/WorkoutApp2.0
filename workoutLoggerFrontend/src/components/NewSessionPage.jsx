@@ -9,6 +9,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
 import AccentCard from './AccentCard';
+import { SortableColumn, SortableRow, GripIcon } from './Sortable';
 import { partOfDay } from '../timeOfDay';
 import { parseDuration, formatDuration, formatTimeInput, pace } from '../duration';
 
@@ -247,11 +248,13 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
 
   const handleAddExercise = async (exercise) => {
     const isCardio = exercise.type === 'cardio';
+    // New exercise goes last: order = current distinct-exercise count.
+    const orderIndex = new Set(editTableLogs.map((l) => l.Exercise?.name)).size;
     try {
       const accessToken = await getToken();
       const payload = isCardio
-        ? { exerciseId: exercise.id, setId, durationSeconds: null, distance: null, notes, sessionLogId }
-        : { exerciseId: exercise.id, setId, reps, weight, notes, sessionLogId };
+        ? { exerciseId: exercise.id, setId, durationSeconds: null, distance: null, orderIndex, notes, sessionLogId }
+        : { exerciseId: exercise.id, setId, reps, weight, orderIndex, notes, sessionLogId };
       const response = await api.post('/exercise-log', payload, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -261,6 +264,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         id: newLog.id,
         exerciseId: exercise.id,
         setId,
+        orderIndex,
         notes,
         rpe: null,
         rir: null,
@@ -393,6 +397,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         {
           exerciseId: lastLog.exerciseId,
           setId: lastLog.setId,
+          orderIndex: lastLog.orderIndex,
           notes: lastLog.notes,
           rpe: numOrNull(lastLog.rpe),
           rir: numOrNull(lastLog.rir),
@@ -508,7 +513,53 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
             return acc;
           }, {})
         )
+          // Order by each exercise's orderIndex; fall back to first-appearance for
+          // legacy logs that predate the order column.
+          .map(([name, logs], i) => ({ name, logs, order: logs[0]?.orderIndex ?? i }))
+          .sort((a, b) => a.order - b.order)
+          .map((g) => [g.name, g.logs])
       : [];
+
+  // Apply a new exercise order (array of names), reindexing every log and
+  // persisting only the exercises whose position actually changed. Shared by the
+  // desktop up/down arrows and the mobile drag handle.
+  const applyExerciseOrder = async (order) => {
+    const prevByName = Object.fromEntries(groupedLogs.map(([name], i) => [name, i]));
+    const orderByName = Object.fromEntries(order.map((name, i) => [name, i]));
+    const changed = new Set(
+      order.filter((name) => prevByName[name] !== orderByName[name])
+    );
+    if (changed.size === 0) return;
+    const updated = editTableLogs.map((l) => ({
+      ...l,
+      orderIndex: orderByName[l.Exercise?.name] ?? l.orderIndex,
+    }));
+    setEditTableLogs(updated);
+    try {
+      const accessToken = await getToken();
+      for (const l of updated) {
+        if (l.id && changed.has(l.Exercise?.name)) {
+          await api.put(
+            `/exercise-log/${l.id}`,
+            { orderIndex: l.orderIndex },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reorder exercise:', err);
+    }
+  };
+
+  // Move an exercise up/down one slot (desktop arrows).
+  const moveExercise = (exerciseName, direction) => {
+    const order = groupedLogs.map(([name]) => name);
+    const idx = order.indexOf(exerciseName);
+    const target = idx + direction;
+    if (target < 0 || target >= order.length) return;
+    [order[idx], order[target]] = [order[target], order[idx]];
+    applyExerciseOrder(order);
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -624,12 +675,22 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
             <p className="mt-4 text-center text-[11px] text-muted sm:hidden">
               RPE = perceived exertion (1–10) · RIR = reps in reserve
             </p>
-            <div className="mt-2 flex flex-col gap-5 sm:mt-5">
-              {groupedLogs.map(([exerciseName, logs]) => {
+            <SortableColumn
+              items={groupedLogs.map(([name]) => name)}
+              onReorder={applyExerciseOrder}
+              className="mt-2 flex flex-col gap-5 sm:mt-5"
+            >
+              {groupedLogs.map(([exerciseName, logs], groupIndex) => {
                 const isCardio = logs[0]?.Exercise?.type === 'cardio';
                 return (
-                <AccentCard key={exerciseName} contentClassName="p-5">
-                  <div className="mb-3 flex items-start justify-between">
+                <SortableRow key={exerciseName} id={exerciseName}>
+                  {({ setNodeRef, style, handleProps, isDragging }) => (
+                <div ref={setNodeRef} style={style}>
+                <AccentCard
+                  contentClassName="p-5"
+                  className={isDragging ? 'shadow-xl ring-2 ring-clay-tint' : ''}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
                     <div>
                       <div className="font-semibold text-ink">{exerciseName}</div>
                       {isCardio && (
@@ -638,17 +699,52 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                         </span>
                       )}
                     </div>
-                    <button
-                      className={smallCloseClass}
-                      title="Delete exercise"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this exercise?')) {
-                          deleteExercise(exerciseName);
-                        }
-                      }}
-                    >
-                      ✕
-                    </button>
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      {coarse ? (
+                        <button
+                          type="button"
+                          aria-label="Hold and drag to reorder"
+                          className="grid h-8 w-8 cursor-grab touch-none select-none place-items-center rounded-lg border border-line-strong text-ink active:cursor-grabbing active:bg-clay-tint active:text-clay"
+                          {...handleProps}
+                        >
+                          <GripIcon />
+                        </button>
+                      ) : (
+                        <div className="flex items-center overflow-hidden rounded-lg border border-line-strong">
+                          <button
+                            type="button"
+                            title="Move up"
+                            disabled={groupIndex === 0}
+                            onClick={() => moveExercise(exerciseName, -1)}
+                            className="grid h-8 w-8 place-items-center text-ink transition-colors hover:bg-clay-tint hover:text-clay disabled:pointer-events-none disabled:opacity-25"
+                          >
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
+                          </button>
+                          <div className="h-8 w-px bg-line" />
+                          <button
+                            type="button"
+                            title="Move down"
+                            disabled={groupIndex === groupedLogs.length - 1}
+                            onClick={() => moveExercise(exerciseName, 1)}
+                            className="grid h-8 w-8 place-items-center text-ink transition-colors hover:bg-clay-tint hover:text-clay disabled:pointer-events-none disabled:opacity-25"
+                          >
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        title="Delete exercise"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this exercise?')) {
+                            deleteExercise(exerciseName);
+                          }
+                        }}
+                        className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M10 11v6M14 11v6" /></svg>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Table header */}
@@ -792,7 +888,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                             type="button"
                             title="Delete set"
                             onClick={() => handleDeleteSet(log)}
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
                           >
                             ✕
                           </button>
@@ -808,9 +904,12 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                     </button>
                   </div>
                 </AccentCard>
+                </div>
+                  )}
+                </SortableRow>
                 );
               })}
-            </div>
+            </SortableColumn>
             </>
           )}
 

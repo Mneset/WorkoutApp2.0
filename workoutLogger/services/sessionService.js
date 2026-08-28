@@ -84,6 +84,7 @@ class SessionService {
                         this.db.ExerciseLog.create({
                             exerciseId: exerciseTemplate.exerciseId,
                             setId: 1, // Default to normal set type (1 = normal)
+                            orderIndex: exerciseTemplate.orderIndex,
                             reps: isCardio ? null : exerciseTemplate.baseReps,
                             weight: isCardio ? null : (exerciseTemplate.baseWeight || 0),
                             durationSeconds: isCardio ? (exerciseTemplate.baseDurationSeconds ?? null) : null,

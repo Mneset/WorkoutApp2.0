@@ -9,6 +9,7 @@ const createExerciseLogSchema = z.object({
     weight: z.coerce.number().nonnegative('weight must be non-negative').nullable().optional(),
     durationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     distance: z.coerce.number().nonnegative().nullable().optional(),
+    orderIndex: z.coerce.number().int().nonnegative().nullable().optional(),
     notes: z.string().optional().nullable(),
     rpe: z.coerce.number().min(0).max(10).nullable().optional(),
     rir: z.coerce.number().int().nonnegative().nullable().optional(),
@@ -20,6 +21,7 @@ const updateExerciseLogSchema = z.object({
     weight: z.coerce.number().nonnegative().nullable().optional(),
     durationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     distance: z.coerce.number().nonnegative().nullable().optional(),
+    orderIndex: z.coerce.number().int().nonnegative().nullable().optional(),
     notes: z.string().optional().nullable(),
     rpe: z.coerce.number().min(0).max(10).nullable().optional(),
     rir: z.coerce.number().int().nonnegative().nullable().optional()

@@ -5,6 +5,7 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 import ScoreSelect from './ScoreSelect';
+import { SortableColumn, SortableRow, GripIcon } from './Sortable';
 import { parseDuration, formatTimeInput } from '../duration';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -34,6 +35,17 @@ export default function CreatePlanPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [coarse, setCoarse] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const onChange = (e) => setCoarse(e.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -114,6 +126,32 @@ export default function CreatePlanPage() {
           ...s,
           exercises: s.exercises.filter((e) => e.tempId !== exerciseTempId),
         };
+      })
+    );
+  };
+
+  // Reorder a template exercise; array position becomes its orderIndex on save.
+  const moveExerciseInTemplate = (templateTempId, exerciseTempId, direction) => {
+    setSessionTemplates((prev) =>
+      prev.map((s) => {
+        if (s.tempId !== templateTempId) return s;
+        const idx = s.exercises.findIndex((e) => e.tempId === exerciseTempId);
+        const target = idx + direction;
+        if (target < 0 || target >= s.exercises.length) return s;
+        const next = [...s.exercises];
+        [next[idx], next[target]] = [next[target], next[idx]];
+        return { ...s, exercises: next };
+      })
+    );
+  };
+
+  // Reorder a template's exercises to match a dragged order of tempIds (mobile drag).
+  const reorderExercisesInTemplate = (templateTempId, orderedTempIds) => {
+    setSessionTemplates((prev) =>
+      prev.map((s) => {
+        if (s.tempId !== templateTempId) return s;
+        const byId = Object.fromEntries(s.exercises.map((e) => [e.tempId, e]));
+        return { ...s, exercises: orderedTempIds.map((id) => byId[id]).filter(Boolean) };
       })
     );
   };
@@ -323,7 +361,7 @@ export default function CreatePlanPage() {
                 ))}
               </select>
               <button
-                className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
                 onClick={() => removeSessionTemplate(st.tempId)}
                 aria-label="Remove session"
               >
@@ -332,6 +370,10 @@ export default function CreatePlanPage() {
             </div>
           </div>
 
+          <SortableColumn
+            items={st.exercises.map((e) => e.tempId)}
+            onReorder={(order) => reorderExercisesInTemplate(st.tempId, order)}
+          >
           {st.exercises.map((ex, idx) => {
             const isCardio = exerciseType(ex.exerciseId) === 'cardio';
             const fields = isCardio
@@ -349,7 +391,13 @@ export default function CreatePlanPage() {
                   { key: 'baseRir', label: 'RIR', options: RIR_OPTIONS },
                 ];
             return (
-            <div key={ex.tempId} className="mb-2 rounded-lg border border-line px-3.5 py-3">
+            <SortableRow key={ex.tempId} id={ex.tempId}>
+              {({ setNodeRef, style, handleProps, isDragging }) => (
+            <div
+              ref={setNodeRef}
+              style={style}
+              className={`mb-2 rounded-lg border px-3.5 py-3 ${isDragging ? 'border-clay shadow-lg' : 'border-line'}`}
+            >
               <div className="flex items-center gap-3">
                 <span className="w-4 shrink-0 font-semibold text-clay">{idx + 1}</span>
                 <select
@@ -365,12 +413,46 @@ export default function CreatePlanPage() {
                     </option>
                   ))}
                 </select>
+                {coarse ? (
+                  <button
+                    type="button"
+                    aria-label="Hold and drag to reorder"
+                    className="grid h-8 w-8 flex-shrink-0 cursor-grab touch-none select-none place-items-center rounded-lg border border-line-strong text-ink active:cursor-grabbing active:bg-clay-tint active:text-clay"
+                    {...handleProps}
+                  >
+                    <GripIcon />
+                  </button>
+                ) : (
+                  <div className="flex flex-shrink-0 items-center overflow-hidden rounded-lg border border-line-strong">
+                    <button
+                      type="button"
+                      title="Move up"
+                      disabled={idx === 0}
+                      onClick={() => moveExerciseInTemplate(st.tempId, ex.tempId, -1)}
+                      className="grid h-8 w-8 place-items-center text-ink transition-colors hover:bg-clay-tint hover:text-clay disabled:pointer-events-none disabled:opacity-25"
+                    >
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
+                    </button>
+                    <div className="h-8 w-px bg-line" />
+                    <button
+                      type="button"
+                      title="Move down"
+                      disabled={idx === st.exercises.length - 1}
+                      onClick={() => moveExerciseInTemplate(st.tempId, ex.tempId, 1)}
+                      className="grid h-8 w-8 place-items-center text-ink transition-colors hover:bg-clay-tint hover:text-clay disabled:pointer-events-none disabled:opacity-25"
+                    >
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                    </button>
+                  </div>
+                )}
                 <button
-                  className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                  type="button"
+                  title="Remove exercise"
                   onClick={() => removeExerciseFromTemplate(st.tempId, ex.tempId)}
                   aria-label="Remove exercise"
+                  className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
                 >
-                  ✕
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M10 11v6M14 11v6" /></svg>
                 </button>
               </div>
 
@@ -416,8 +498,11 @@ export default function CreatePlanPage() {
                 ))}
               </div>
             </div>
+              )}
+            </SortableRow>
             );
           })}
+          </SortableColumn>
 
           <button
             className="w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint"
