@@ -421,23 +421,23 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   };
 
   const handleDeleteSet = async (log) => {
-    if (log.id) {
-      try {
-        const accessToken = await getToken();
-        await api.delete(`/exercise-log/${log.id}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-      } catch (err) {
-        alert('Failed to delete set. Please try again.');
-        console.error('Error deleting set:', err);
-        return;
-      }
-    }
+    // Remove immediately (optimistic) so the swipe row always clears — a failed API
+    // call must never leave the delete gesture stuck.
     setEditTableLogs((prev) => prev.filter((l) => l.id !== log.id));
+    if (!log.id) return;
+    try {
+      const accessToken = await getToken();
+      await api.delete(`/exercise-log/${log.id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    } catch (err) {
+      console.error('Error deleting set:', err);
+    }
   };
 
   const deleteExercise = async (exerciseName) => {
     const logs = editTableLogs.filter((l) => l.Exercise?.name === exerciseName);
+    setEditTableLogs((prev) => prev.filter((l) => l.Exercise?.name !== exerciseName));
     try {
       const accessToken = await getToken();
       for (const l of logs) {
@@ -448,11 +448,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         }
       }
     } catch (err) {
-      alert('Failed to delete exercise. Please try again.');
       console.error('Error deleting exercise:', err);
-      return;
     }
-    setEditTableLogs((prev) => prev.filter((l) => l.Exercise?.name !== exerciseName));
   };
 
   useEffect(() => {

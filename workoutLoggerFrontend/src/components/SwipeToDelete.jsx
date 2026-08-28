@@ -20,12 +20,21 @@ export default function SwipeToDelete({ onDelete, enabled = true, children }) {
   if (!enabled) return <>{children}</>;
 
   const onTouchStart = (e) => {
-    if (committing) return;
     const t = e.touches[0];
     widthRef.current = containerRef.current?.offsetWidth || 0;
     start.current = { x: t.clientX, y: t.clientY };
     dir.current = null;
+    // Clear any leftover/stuck state so a fresh swipe always starts clean.
+    setCommitting(false);
+    setDx(0);
     setDragging(true);
+  };
+
+  const onTouchCancel = () => {
+    setDragging(false);
+    setCommitting(false);
+    setDx(0);
+    start.current = null;
   };
 
   const onTouchMove = (e) => {
@@ -77,6 +86,7 @@ export default function SwipeToDelete({ onDelete, enabled = true, children }) {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
       >
         {children}
       </div>
