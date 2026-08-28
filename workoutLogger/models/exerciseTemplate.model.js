@@ -61,6 +61,18 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             field: 'base_rir',
             allowNull: true
+        },
+        // Ordered per-set prescription: strength [{reps, weight, rpe, rir}, …] or
+        // cardio [{durationSeconds, distance, rpe}, …]. Null on legacy templates, which
+        // fall back to baseSets × the base_* values when a session is started.
+        sets: {
+            type: DataTypes.JSON,
+            allowNull: true
+        },
+        // Free-text note for this exercise within the plan (e.g. tempo/form cues).
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     }, {
         tableName: 'exercisetemplate',

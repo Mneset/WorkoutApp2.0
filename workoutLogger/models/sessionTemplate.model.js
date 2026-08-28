@@ -22,6 +22,10 @@ module.exports = (sequelize, DataTypes) => {
                 model: 'workoutplan',
                 key: 'id'
             }
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     }, {
         tableName: 'sessiontemplate',

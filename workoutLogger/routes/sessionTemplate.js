@@ -39,14 +39,14 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', validate(createSessionTemplateSchema), async (req, res) => {
-    const { name, dayOffset, workoutPlanId } = req.body;
+    const { name, dayOffset, workoutPlanId, notes } = req.body;
     try {
         const workoutPlan = await workoutPlanService.getWorkoutPlanById(workoutPlanId);
         if (!workoutPlan) {
             return error(res, 'Workout plan not found', 404);
         }
 
-        const session = await sessionTemplateService.createTemplate(name, dayOffset, workoutPlanId);
+        const session = await sessionTemplateService.createTemplate(name, dayOffset, workoutPlanId, notes ?? null);
         return success(res, session, 201);
     } catch (err) {
         console.error('Error creating session template:', err);

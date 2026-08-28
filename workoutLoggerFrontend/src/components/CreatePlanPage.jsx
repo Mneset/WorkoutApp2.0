@@ -5,6 +5,7 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 import ScoreSelect from './ScoreSelect';
+import ExercisePickerModal from './ExercisePickerModal';
 import { SortableColumn, SortableRow, GripIcon } from './Sortable';
 import { parseDuration, formatTimeInput } from '../duration';
 
@@ -35,6 +36,8 @@ export default function CreatePlanPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  // Which template + type the exercise picker is open for (null = closed).
+  const [picker, setPicker] = useState(null);
   const [coarse, setCoarse] = useState(
     () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
   );
@@ -72,6 +75,7 @@ export default function CreatePlanPage() {
         tempId: Date.now(),
         name: '',
         dayOffset: prev.length,
+        notes: '',
         exercises: [],
       },
     ]);
@@ -87,13 +91,21 @@ export default function CreatePlanPage() {
     );
   };
 
-  // Look up an exercise's log type ('strength' | 'cardio') by id.
-  const exerciseType = (id) => {
-    const e = exercises.find((x) => x.id === Number(id));
-    return e?.type === 'cardio' ? 'cardio' : 'strength';
-  };
+  // A blank set row, seeded from `from` (used to copy the previous set's values).
+  const blankSet = (isCardio, from = {}) =>
+    isCardio
+      ? { durationSeconds: from.durationSeconds || '', distance: from.distance || '', rpe: from.rpe || '' }
+      : {
+          reps: from.reps || '',
+          weight: from.weight || '',
+          rpe: from.rpe || '',
+          rir: from.rir || '',
+        };
 
-  const addExerciseToTemplate = (templateTempId) => {
+  // Add an exercise picked from the modal to a template day (starts with one set).
+  const addExerciseToTemplate = (templateTempId, exercise) => {
+    if (!exercise) return;
+    const isCardio = exercise.type === 'cardio';
     setSessionTemplates((prev) =>
       prev.map((s) => {
         if (s.tempId !== templateTempId) return s;
@@ -103,20 +115,44 @@ export default function CreatePlanPage() {
             ...s.exercises,
             {
               tempId: Date.now(),
-              exerciseId: exercises.length > 0 ? exercises[0].id : '',
-              baseSets: '',
-              baseReps: '',
-              baseWeight: '',
-              baseDurationSeconds: '',
-              baseDistance: '',
-              baseRpe: '',
-              baseRir: '',
+              exerciseId: exercise.id,
+              exerciseName: exercise.name,
+              type: isCardio ? 'cardio' : 'strength',
+              notes: '',
+              sets: [blankSet(isCardio)],
             },
           ],
         };
       })
     );
   };
+
+  // Set-level editing within a template exercise.
+  const mapExercise = (templateTempId, exerciseTempId, fn) =>
+    setSessionTemplates((prev) =>
+      prev.map((s) =>
+        s.tempId !== templateTempId
+          ? s
+          : { ...s, exercises: s.exercises.map((e) => (e.tempId === exerciseTempId ? fn(e) : e)) }
+      )
+    );
+
+  const addSetToExercise = (templateTempId, exerciseTempId) =>
+    mapExercise(templateTempId, exerciseTempId, (e) => ({
+      ...e,
+      sets: [...e.sets, blankSet(e.type === 'cardio', e.sets[e.sets.length - 1] || {})],
+    }));
+
+  const removeSetFromExercise = (templateTempId, exerciseTempId, setIndex) =>
+    mapExercise(templateTempId, exerciseTempId, (e) =>
+      e.sets.length <= 1 ? e : { ...e, sets: e.sets.filter((_, i) => i !== setIndex) }
+    );
+
+  const updateSetField = (templateTempId, exerciseTempId, setIndex, field, value) =>
+    mapExercise(templateTempId, exerciseTempId, (e) => ({
+      ...e,
+      sets: e.sets.map((st, i) => (i === setIndex ? { ...st, [field]: value } : st)),
+    }));
 
   const removeExerciseFromTemplate = (templateTempId, exerciseTempId) => {
     setSessionTemplates((prev) =>
@@ -156,20 +192,6 @@ export default function CreatePlanPage() {
     );
   };
 
-  const updateExerciseInTemplate = (templateTempId, exerciseTempId, field, value) => {
-    setSessionTemplates((prev) =>
-      prev.map((s) => {
-        if (s.tempId !== templateTempId) return s;
-        return {
-          ...s,
-          exercises: s.exercises.map((e) =>
-            e.tempId === exerciseTempId ? { ...e, [field]: value } : e
-          ),
-        };
-      })
-    );
-  };
-
   const handleSave = async () => {
     if (!name.trim()) {
       setError('Plan name is required');
@@ -189,18 +211,21 @@ export default function CreatePlanPage() {
         return;
       }
       for (const ex of st.exercises) {
-        if (!(Number(ex.baseSets) >= 1)) {
+        const isCardio = ex.type === 'cardio';
+        if (!ex.sets || ex.sets.length === 0) {
           setError('Every exercise needs at least 1 set');
           return;
         }
-        if (exerciseType(ex.exerciseId) === 'cardio') {
-          if (!parseDuration(ex.baseDurationSeconds) && !(Number(ex.baseDistance) > 0)) {
-            setError('Every cardio entry needs a time or distance');
+        for (const set of ex.sets) {
+          if (isCardio) {
+            if (!parseDuration(set.durationSeconds) && !(Number(set.distance) > 0)) {
+              setError('Every cardio set needs a time or distance');
+              return;
+            }
+          } else if (!(Number(set.reps) >= 1)) {
+            setError('Every set needs at least 1 rep');
             return;
           }
-        } else if (!(Number(ex.baseReps) >= 1)) {
-          setError('Every exercise needs sets and reps (at least 1)');
-          return;
         }
       }
     }
@@ -234,33 +259,52 @@ export default function CreatePlanPage() {
             name: st.name.trim(),
             dayOffset: Number(st.dayOffset),
             workoutPlanId: plan.id,
+            notes: st.notes?.trim() || null,
           },
           { headers }
         );
 
         const sessionTemplate = stResponse.data.data.result;
 
-        // 3. Create exercise templates for each session
+        // 3. Create exercise templates for each session, with their per-set prescription.
         for (let j = 0; j < st.exercises.length; j++) {
           const ex = st.exercises[j];
-          const isCardio = exerciseType(ex.exerciseId) === 'cardio';
+          const isCardio = ex.type === 'cardio';
+          const sets = ex.sets.map((set) =>
+            isCardio
+              ? {
+                  durationSeconds: parseDuration(set.durationSeconds),
+                  distance: numOrNull(set.distance),
+                  rpe: numOrNull(set.rpe),
+                }
+              : {
+                  reps: Number(set.reps),
+                  weight: Number(set.weight) || null,
+                  rpe: numOrNull(set.rpe),
+                  rir: numOrNull(set.rir),
+                }
+          );
+          // Representative base_* values (from set 1) keep legacy consumers/fallbacks sane.
+          const first = sets[0] || {};
           await api.post(
             '/exercise-template',
             {
               sessionTemplateId: sessionTemplate.id,
               exerciseId: Number(ex.exerciseId),
               orderIndex: j,
-              baseSets: Number(ex.baseSets),
-              baseRpe: numOrNull(ex.baseRpe),
+              baseSets: sets.length,
+              baseRpe: first.rpe ?? null,
+              sets,
+              notes: ex.notes?.trim() || null,
               ...(isCardio
                 ? {
-                    baseDurationSeconds: parseDuration(ex.baseDurationSeconds),
-                    baseDistance: numOrNull(ex.baseDistance),
+                    baseDurationSeconds: first.durationSeconds ?? null,
+                    baseDistance: first.distance ?? null,
                   }
                 : {
-                    baseReps: Number(ex.baseReps),
-                    baseWeight: Number(ex.baseWeight) || null,
-                    baseRir: numOrNull(ex.baseRir),
+                    baseReps: first.reps ?? null,
+                    baseWeight: first.weight ?? null,
+                    baseRir: first.rir ?? null,
                   }),
             },
             { headers }
@@ -370,26 +414,27 @@ export default function CreatePlanPage() {
             </div>
           </div>
 
+          <textarea
+            rows={2}
+            className={`${inputClass} mb-3 w-full resize-y`}
+            placeholder="Session notes (optional) — e.g. focus, warm-up, general cues"
+            value={st.notes}
+            onChange={(e) => updateSessionTemplate(st.tempId, 'notes', e.target.value)}
+          />
+
           <SortableColumn
             items={st.exercises.map((e) => e.tempId)}
             onReorder={(order) => reorderExercisesInTemplate(st.tempId, order)}
           >
           {st.exercises.map((ex, idx) => {
-            const isCardio = exerciseType(ex.exerciseId) === 'cardio';
-            const fields = isCardio
-              ? [
-                  { key: 'baseSets', label: 'Sets', min: '1' },
-                  { key: 'baseDurationSeconds', label: 'Time', time: true },
-                  { key: 'baseDistance', label: 'Km', min: '0', step: '0.01' },
-                  { key: 'baseRpe', label: 'RPE', options: RPE_OPTIONS },
-                ]
-              : [
-                  { key: 'baseSets', label: 'Sets', min: '1' },
-                  { key: 'baseReps', label: 'Reps', min: '1' },
-                  { key: 'baseWeight', label: 'Weight', min: '0' },
-                  { key: 'baseRpe', label: 'RPE', options: RPE_OPTIONS },
-                  { key: 'baseRir', label: 'RIR', options: RIR_OPTIONS },
-                ];
+            const isCardio = ex.type === 'cardio';
+            const exName =
+              ex.exerciseName ||
+              exercises.find((x) => x.id === Number(ex.exerciseId))?.name ||
+              'Exercise';
+            const gridCols = isCardio
+              ? 'grid-cols-[28px_1fr_1fr_1fr_28px]'
+              : 'grid-cols-[28px_1fr_1fr_1fr_1fr_28px]';
             return (
             <SortableRow key={ex.tempId} id={ex.tempId}>
               {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
@@ -400,19 +445,14 @@ export default function CreatePlanPage() {
             >
               <div className="flex items-center gap-3">
                 <span className="w-4 shrink-0 font-semibold text-clay">{idx + 1}</span>
-                <select
-                  className={`${inputClass} min-w-0 flex-1`}
-                  value={ex.exerciseId}
-                  onChange={(e) =>
-                    updateExerciseInTemplate(st.tempId, ex.tempId, 'exerciseId', e.target.value)
-                  }
-                >
-                  {exercises.map((exercise) => (
-                    <option key={exercise.id} value={exercise.id}>
-                      {exercise.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-ink">{exName}</div>
+                  {isCardio && (
+                    <span className="mt-0.5 inline-block rounded-full bg-clay-tint px-2 py-0.5 text-[10px] font-semibold text-clay">
+                      Cardio
+                    </span>
+                  )}
+                </div>
                 {coarse ? (
                   <button
                     type="button"
@@ -457,46 +497,119 @@ export default function CreatePlanPage() {
               </div>
 
               {!isSorting && (
-              <div className={`mt-2 grid grid-cols-3 gap-2 pl-7 ${isCardio ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>
-                {fields.map((f) => (
-                  <label key={f.key} className="block">
-                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted">
-                      {f.label}
+              <div className="mt-3">
+                {/* Column headers */}
+                <div className={`grid ${gridCols} items-center gap-1.5 border-b border-line pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted`}>
+                  <span>Set</span>
+                  <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
+                  <span className="text-center">{isCardio ? 'Km' : 'Kg'}</span>
+                  <span className="text-center">RPE</span>
+                  {!isCardio && <span className="text-center">RIR</span>}
+                  <span />
+                </div>
+
+                {/* One row per prescribed set */}
+                {ex.sets.map((set, sIdx) => (
+                  <div
+                    key={sIdx}
+                    className={`grid ${gridCols} items-center gap-1.5 py-1.5 ${
+                      sIdx > 0 ? 'border-t border-line' : ''
+                    }`}
+                  >
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
+                      {sIdx + 1}
                     </span>
-                    {f.options ? (
-                      <ScoreSelect
-                        value={ex[f.key]}
-                        options={f.options}
-                        onChange={(v) => updateExerciseInTemplate(st.tempId, ex.tempId, f.key, v)}
-                      />
-                    ) : f.time ? (
+                    {isCardio ? (
                       <input
                         type="text"
                         inputMode="numeric"
                         placeholder="mm:ss"
-                        className={`${inputClass} w-full text-center`}
-                        value={ex[f.key]}
+                        className={`${inputClass} w-full px-1.5 text-center`}
+                        value={set.durationSeconds}
                         onChange={(e) =>
-                          updateExerciseInTemplate(st.tempId, ex.tempId, f.key, formatTimeInput(e.target.value))
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'durationSeconds', formatTimeInput(e.target.value))
                         }
                       />
                     ) : (
                       <input
                         type="number"
-                        min={f.min}
-                        max={f.max}
-                        step={f.step}
+                        min="0"
                         placeholder="–"
-                        className={`${inputClass} w-full text-center`}
-                        value={ex[f.key]}
+                        className={`${inputClass} w-full px-1.5 text-center`}
+                        value={set.reps}
                         onChange={(e) => {
                           if (Number(e.target.value) < 0) return;
-                          updateExerciseInTemplate(st.tempId, ex.tempId, f.key, e.target.value);
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'reps', e.target.value);
                         }}
                       />
                     )}
-                  </label>
+                    {isCardio ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="–"
+                        className={`${inputClass} w-full px-1.5 text-center`}
+                        value={set.distance}
+                        onChange={(e) => {
+                          if (Number(e.target.value) < 0) return;
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'distance', e.target.value);
+                        }}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="–"
+                        className={`${inputClass} w-full px-1.5 text-center`}
+                        value={set.weight}
+                        onChange={(e) => {
+                          if (Number(e.target.value) < 0) return;
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'weight', e.target.value);
+                        }}
+                      />
+                    )}
+                    <ScoreSelect
+                      value={set.rpe}
+                      options={RPE_OPTIONS}
+                      onChange={(v) => updateSetField(st.tempId, ex.tempId, sIdx, 'rpe', v)}
+                    />
+                    {!isCardio && (
+                      <ScoreSelect
+                        value={set.rir}
+                        options={RIR_OPTIONS}
+                        onChange={(v) => updateSetField(st.tempId, ex.tempId, sIdx, 'rir', v)}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      title="Remove set"
+                      disabled={ex.sets.length <= 1}
+                      onClick={() => removeSetFromExercise(st.tempId, ex.tempId, sIdx)}
+                      className="grid h-7 w-7 place-items-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger disabled:pointer-events-none disabled:opacity-25"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))}
+
+                <button
+                  type="button"
+                  onClick={() => addSetToExercise(st.tempId, ex.tempId)}
+                  className="mt-2 w-full rounded-lg border border-dashed border-line-strong py-2 text-xs font-semibold text-clay hover:border-clay hover:bg-clay-tint"
+                >
+                  + Add set
+                </button>
+
+                <input
+                  type="text"
+                  className={`${inputClass} mt-2 w-full`}
+                  placeholder="Exercise notes (optional) — e.g. tempo, form cues"
+                  value={ex.notes}
+                  onChange={(e) =>
+                    mapExercise(st.tempId, ex.tempId, (en) => ({ ...en, notes: e.target.value }))
+                  }
+                />
               </div>
               )}
             </div>
@@ -506,12 +619,20 @@ export default function CreatePlanPage() {
           })}
           </SortableColumn>
 
-          <button
-            className="w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint"
-            onClick={() => addExerciseToTemplate(st.tempId)}
-          >
-            + Add exercise
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              className="w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint"
+              onClick={() => setPicker({ templateTempId: st.tempId, type: 'strength' })}
+            >
+              + Add exercise
+            </button>
+            <button
+              className="w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint"
+              onClick={() => setPicker({ templateTempId: st.tempId, type: 'cardio' })}
+            >
+              + Add cardio
+            </button>
+          </div>
         </Card>
       ))}
 
@@ -532,6 +653,15 @@ export default function CreatePlanPage() {
           {saving ? 'Creating plan…' : 'Create plan'}
         </Button>
       </div>
+
+      {picker && (
+        <ExercisePickerModal
+          exercises={exercises}
+          type={picker.type}
+          onSelect={(ex) => addExerciseToTemplate(picker.templateTempId, ex)}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
   );
 }

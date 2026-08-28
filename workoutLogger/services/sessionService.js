@@ -68,7 +68,9 @@ class SessionService {
                     sessionData.weekNumber = user.currentWeek,
                     sessionData.workoutPlanId = user.workoutPlanId,
                     sessionData.name = `${sessionTemplate.name} - Week ${user.currentWeek}`
-                } 
+                    // Carry the plan day's note into the started session as its starting note.
+                    if (sessionTemplate.notes) sessionData.notes = sessionTemplate.notes
+                }
             }
             
             const session = await this.db.SessionLog.create(sessionData)
@@ -78,24 +80,38 @@ class SessionService {
             
             sessionTemplate.ExerciseTemplates.forEach(exerciseTemplate => {
                 const isCardio = exerciseTemplate.Exercise?.type === 'cardio';
-                // Create baseSets number of exercise logs (each representing one set)
-                for (let i = 0; i < exerciseTemplate.baseSets; i++) {
+
+                // Prefer the per-set prescription; fall back to baseSets identical sets for
+                // legacy templates saved before the `sets` column existed.
+                const prescribedSets =
+                    Array.isArray(exerciseTemplate.sets) && exerciseTemplate.sets.length > 0
+                        ? exerciseTemplate.sets
+                        : Array.from({ length: exerciseTemplate.baseSets }, () => ({
+                              reps: exerciseTemplate.baseReps,
+                              weight: exerciseTemplate.baseWeight,
+                              durationSeconds: exerciseTemplate.baseDurationSeconds,
+                              distance: exerciseTemplate.baseDistance,
+                              rpe: exerciseTemplate.baseRpe,
+                              rir: exerciseTemplate.baseRir,
+                          }));
+
+                prescribedSets.forEach(set => {
                     exerciseLogPromises.push(
                         this.db.ExerciseLog.create({
                             exerciseId: exerciseTemplate.exerciseId,
                             setId: 1, // Default to normal set type (1 = normal)
                             orderIndex: exerciseTemplate.orderIndex,
-                            reps: isCardio ? null : exerciseTemplate.baseReps,
-                            weight: isCardio ? null : (exerciseTemplate.baseWeight || 0),
-                            durationSeconds: isCardio ? (exerciseTemplate.baseDurationSeconds ?? null) : null,
-                            distance: isCardio ? (exerciseTemplate.baseDistance ?? null) : null,
+                            reps: isCardio ? null : (set.reps ?? null),
+                            weight: isCardio ? null : (set.weight ?? 0),
+                            durationSeconds: isCardio ? (set.durationSeconds ?? null) : null,
+                            distance: isCardio ? (set.distance ?? null) : null,
                             notes: '',
-                            rpe: exerciseTemplate.baseRpe ?? null,
-                            rir: isCardio ? null : (exerciseTemplate.baseRir ?? null),
+                            rpe: set.rpe ?? null,
+                            rir: isCardio ? null : (set.rir ?? null),
                             sessionLogId: session.id
                         })
                     );
-                }
+                });
             });
 
             await Promise.all(exerciseLogPromises);

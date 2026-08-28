@@ -3,11 +3,12 @@ class SessionTemplateService {
         this.db = db
     }
 
-    async createTemplate(name, dayOffset, workoutPlanId) {
+    async createTemplate(name, dayOffset, workoutPlanId, notes = null) {
         const newSessionTemplate = await this.db.SessionTemplate.create({
             name: name,
             dayOffset: dayOffset,
-            workout_plan_id: workoutPlanId
+            workout_plan_id: workoutPlanId,
+            notes: notes
         });
         return newSessionTemplate;
     }

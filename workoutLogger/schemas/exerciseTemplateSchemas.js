@@ -1,7 +1,19 @@
 const { z } = require('zod');
 
+// One prescribed set within an exercise template: strength uses reps/weight/rir,
+// cardio uses durationSeconds/distance; rpe applies to both. All optional/nullable.
+const setTemplateSchema = z.object({
+    reps: z.coerce.number().int().nonnegative().nullable().optional(),
+    weight: z.coerce.number().nonnegative().nullable().optional(),
+    durationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
+    distance: z.coerce.number().nonnegative().nullable().optional(),
+    rpe: z.coerce.number().min(0).max(10).nullable().optional(),
+    rir: z.coerce.number().int().nonnegative().nullable().optional()
+});
+
 // baseReps (strength) and baseDurationSeconds/baseDistance (cardio) are all optional —
 // the client sends the pair matching the exercise's type. baseSets applies to both.
+// `sets` carries the full per-set prescription; the base_* fields remain as a fallback.
 const createExerciseTemplateSchema = z.object({
     sessionTemplateId: z.number().int().positive('sessionTemplateId is required'),
     exerciseId: z.number().int().positive('exerciseId is required'),
@@ -12,7 +24,9 @@ const createExerciseTemplateSchema = z.object({
     baseDurationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     baseDistance: z.coerce.number().nonnegative().nullable().optional(),
     baseRpe: z.coerce.number().min(0).max(10).nullable().optional(),
-    baseRir: z.coerce.number().int().nonnegative().nullable().optional()
+    baseRir: z.coerce.number().int().nonnegative().nullable().optional(),
+    sets: z.array(setTemplateSchema).nullable().optional(),
+    notes: z.string().nullable().optional()
 });
 
 const updateExerciseTemplateSchema = z.object({
@@ -25,7 +39,9 @@ const updateExerciseTemplateSchema = z.object({
     baseDurationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     baseDistance: z.coerce.number().nonnegative().nullable().optional(),
     baseRpe: z.coerce.number().min(0).max(10).nullable().optional(),
-    baseRir: z.coerce.number().int().nonnegative().nullable().optional()
+    baseRir: z.coerce.number().int().nonnegative().nullable().optional(),
+    sets: z.array(setTemplateSchema).nullable().optional(),
+    notes: z.string().nullable().optional()
 }).refine(data => Object.keys(data).length > 0, {
     message: 'At least one field must be provided for update'
 });

@@ -115,10 +115,18 @@ export default function FullPlanModal({ plan, activePlanId, onClose, onPlanChang
                       <span className="text-xs text-muted">Rest Day</span>
                     )}
                   </div>
+                  {session?.notes && (
+                    <p className="mt-1 text-xs italic text-muted">{session.notes}</p>
+                  )}
                   {session && session.ExerciseTemplates && session.ExerciseTemplates.length > 0 && (
                     <ul className="mt-2 space-y-1 text-sm text-muted">
                       {session.ExerciseTemplates.map((ex) => (
-                        <li key={ex.id}>{ex.Exercise?.name || 'Unknown Exercise'}</li>
+                        <li key={ex.id}>
+                          {ex.Exercise?.name || 'Unknown Exercise'}
+                          {ex.notes && (
+                            <span className="block text-xs italic text-muted">— {ex.notes}</span>
+                          )}
+                        </li>
                       ))}
                     </ul>
                   )}

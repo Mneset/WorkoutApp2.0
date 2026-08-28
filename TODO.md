@@ -16,10 +16,10 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 
 ## Backlog / ideas
 
-- **Plan builder exercise selection** — CreatePlanPage still picks exercises from a plain
-  `<select>` listing all ~873 exercises, which is now unwieldy (and cardio is buried in it).
-  Replace it with the same **"+ Add exercise" / "+ Add cardio" picker modal** the session
-  builder uses (`ExercisePickerModal`), so plan exercises are searchable/scoped by type.
+- [x] **Plan builder exercise selection** — replaced the plain ~873-option `<select>` with
+  the shared `ExercisePickerModal`: each template day has split **"+ Add exercise" /
+  "+ Add cardio"** buttons that open the searchable, type-scoped picker, and rows now show
+  the chosen exercise name (read-only) with a Cardio badge.
 - **Exercise descriptions + images** — free-exercise-db includes step-by-step `instructions`
   (text) and `images` (~2 photos/exercise: start/end position). Add an `instructions` TEXT
   column + store image paths, re-seed from the dataset (raw file still available), and show
