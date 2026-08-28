@@ -9,7 +9,13 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: false,
             unique: true
-        }      
+        },
+        // 'strength' (reps × weight) or 'cardio' (duration + distance).
+        type: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            defaultValue: 'strength'
+        }
     }, {
         tableName: 'exercises' 
     });

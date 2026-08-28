@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import api from '../api';
 import Card from './Card';
+import AccentCard from './AccentCard';
 import Button from './Button';
 import { partOfDay } from '../timeOfDay';
 
@@ -362,7 +363,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-        <Card className="p-6">
+        <AccentCard>
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg">Recent sessions</h2>
             <span
@@ -399,10 +400,10 @@ export default function DashboardPage() {
           ) : (
             <div className="py-8 text-center text-sm text-muted">No sessions logged yet.</div>
           )}
-        </Card>
+        </AccentCard>
 
         <div className="flex flex-col gap-5">
-          <Card className="p-6">
+          <AccentCard>
             <h2 className="mb-3 text-lg">Your plan</h2>
             {plan?.WorkoutPlan ? (
               <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
@@ -415,13 +416,12 @@ export default function DashboardPage() {
             ) : (
               <div className="py-6 text-center text-sm text-muted">No active plan.</div>
             )}
-          </Card>
+          </AccentCard>
 
-          <div
-            className={`flex flex-1 flex-col rounded-2xl p-6 ${
-              !schedule?.todayDone && next?.isToday
-                ? 'border border-clay-tintborder bg-clay-tint'
-                : 'border border-line bg-surface shadow-sm'
+          <AccentCard
+            className="flex flex-1 flex-col"
+            contentClassName={`flex flex-1 flex-col p-6 ${
+              !schedule?.todayDone && next?.isToday ? 'bg-clay-tint' : ''
             }`}
           >
             {!schedule ? (
@@ -465,7 +465,7 @@ export default function DashboardPage() {
                 )}
               </>
             )}
-          </div>
+          </AccentCard>
         </div>
       </div>
 

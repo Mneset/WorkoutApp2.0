@@ -8,6 +8,7 @@ import Button from './Button';
 import ExercisePickerModal from './ExercisePickerModal';
 import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
+import AccentCard from './AccentCard';
 import { partOfDay } from '../timeOfDay';
 
 const inputClass =
@@ -575,14 +576,14 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
 
           {/* Exercises */}
           {groupedLogs.length > 0 && (
-            <div className="mt-5 flex flex-col gap-5">
+            <>
+            {/* RPE/RIR legend — mobile only (the header tooltips are hover-only) */}
+            <p className="mt-4 text-center text-[11px] text-muted sm:hidden">
+              RPE = perceived exertion (1–10) · RIR = reps in reserve
+            </p>
+            <div className="mt-2 flex flex-col gap-5 sm:mt-5">
               {groupedLogs.map(([exerciseName, logs]) => (
-                <Card
-                  key={exerciseName}
-                  className="group overflow-hidden border-0 p-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="h-1.5 w-full bg-gradient-to-r from-clay via-clay-hover to-clay" />
-                  <div className="p-5">
+                <AccentCard key={exerciseName} contentClassName="p-5">
                   <div className="mb-3 flex items-start justify-between">
                     <div>
                       <div className="font-semibold text-ink">{exerciseName}</div>
@@ -752,10 +753,10 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
                       + Add set
                     </button>
                   </div>
-                  </div>
-                </Card>
+                </AccentCard>
               ))}
             </div>
+            </>
           )}
 
           {/* Add exercise */}
