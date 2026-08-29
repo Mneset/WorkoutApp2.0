@@ -14,6 +14,17 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
       relaxed baseReps, CreatePlanPage branches its row inputs by exercise type, and
       startSession pre-creates cardio logs from cardio templates. Needs migration `024`.
 
+## Recently added
+
+- [x] **Standalone session templates** — reusable, non-plan sessions built with the *same*
+      builder as a live session (extracted into shared `SessionBuilderView`, used by both
+      `NewSessionPage` and `CreateTemplatePage`). Stored as a `SessionTemplate` with a null
+      `workout_plan_id` + owning `user_id` (migration `028`). The Plans page has a
+      Plans/Templates segmented filter; templates can be started (`Start workout` →
+      `POST /session` with the template id) or deleted.
+- [x] **Per-set plan/template prescriptions + notes** — `exercisetemplate.sets` JSON
+      (migration `026`) and `notes` on session/exercise templates (migration `027`).
+
 ## Backlog / ideas
 
 - [x] **Plan builder exercise selection** — replaced the plain ~873-option `<select>` with

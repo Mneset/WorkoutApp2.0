@@ -5,35 +5,9 @@ import { useSession } from '../context/SessionContext';
 import api from '../api';
 import Card from './Card';
 import Button from './Button';
-import ExercisePickerModal from './ExercisePickerModal';
-import ScoreSelect from './ScoreSelect';
-import SwipeToDelete from './SwipeToDelete';
-import AccentCard from './AccentCard';
-import { SortableColumn, SortableRow, GripIcon } from './Sortable';
+import SessionBuilderView, { Eyebrow } from './SessionBuilderView';
 import { partOfDay } from '../timeOfDay';
-import { parseDuration, formatDuration, formatTimeInput, pace } from '../duration';
-
-const inputClass =
-  'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
-
-const numInputClass =
-  'w-full rounded-lg border border-line-strong bg-surface px-2 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
-
-// RPE: 1–10 in 0.5 steps. RIR: 1–10 in whole steps. Both optional (blank = not set).
-const RPE_OPTIONS = Array.from({ length: 19 }, (_, i) => 1 + i * 0.5);
-const RIR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
-
-const dashedButtonClass =
-  'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
-
-const smallCloseClass =
-  'grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger';
-
-const Eyebrow = ({ children }) => (
-  <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
-    {children}
-  </span>
-);
+import { parseDuration, formatDuration } from '../duration';
 
 function formatElapsed(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
@@ -137,44 +111,21 @@ function StartSession() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Live builder view (logic preserved from sessionContent2Component.js)       */
+/* Live builder view — owns the live session state and persistence, and       */
+/* renders the shared SessionBuilderView with an API-backed data adapter.      */
 /* -------------------------------------------------------------------------- */
 function SessionBuilder({ sessionLogId, editMode = false }) {
-  const [exerciseId, setExerciseId] = useState();
-  const [setId, setSetId] = useState(1);
-  const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState('');
-  const [notes, setNotes] = useState('');
   const [session, setSession] = useState(null);
   const [exercises, setExercises] = useState([]);
-  const [sets, setSets] = useState([]);
-  const [selectedExerciseName, setSelectedExerciseName] = useState('');
-  const [showAddExerciseForm, setShowAddExerciseForm] = useState(false);
   const [editTableLogs, setEditTableLogs] = useState([]);
   const [sessionName, setSessionName] = useState('');
-  const [editingName, setEditingName] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
-  const [showNotes, setShowNotes] = useState(false);
-  const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
-  const [tempIdCounter, setTempIdCounter] = useState(10000);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Presentational count-up timer
+  // Presentational count-up timer.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  // Touch devices get swipe-to-delete for sets; mouse devices get a delete button.
-  const [coarse, setCoarse] = useState(
-    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
-  );
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(pointer: coarse)');
-    const on = (e) => setCoarse(e.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
 
   const { getToken } = useAuth();
   const { handleSessionEnded } = useSession();
@@ -195,24 +146,16 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     const fetchData = async () => {
       try {
         const accessToken = await getToken();
-
         const response = await api.get('/exercise-log', {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         setExercises(response.data.data.result);
-
-        const setsResponse = await api.get('/sets', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        setSets(setsResponse.data.data.result);
       } catch (err) {
         console.error('Error fetching data:', err);
       }
     };
-
     fetchData();
   }, [getToken]);
-
 
   const handleGetSession = async () => {
     setLoading(true);
@@ -253,8 +196,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     try {
       const accessToken = await getToken();
       const payload = isCardio
-        ? { exerciseId: exercise.id, setId, durationSeconds: null, distance: null, orderIndex, notes, sessionLogId }
-        : { exerciseId: exercise.id, setId, reps, weight, orderIndex, notes, sessionLogId };
+        ? { exerciseId: exercise.id, setId: 1, durationSeconds: null, distance: null, orderIndex, notes: '', sessionLogId }
+        : { exerciseId: exercise.id, setId: 1, reps: '', weight: '', orderIndex, notes: '', sessionLogId };
       const response = await api.post('/exercise-log', payload, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -263,17 +206,16 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       const logEntry = {
         id: newLog.id,
         exerciseId: exercise.id,
-        setId,
+        setId: 1,
         orderIndex,
-        notes,
+        notes: '',
         rpe: null,
         rir: null,
         sessionLogId,
         Exercise: { name: exercise.name, type: exercise.type },
-        ...(isCardio ? { durationSeconds: '', distance: '' } : { reps, weight }),
+        ...(isCardio ? { durationSeconds: '', distance: '' } : { reps: '', weight: '' }),
       };
 
-      setTempIdCounter((prev) => prev - 1);
       setEditTableLogs((prevLogs) => [...prevLogs, logEntry]);
     } catch (err) {
       alert('Failed to add exercise. Please try again.');
@@ -281,7 +223,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     }
   };
 
-  // Patch one log row in place by id.
+  // Patch one log row in place by id (local only).
   const updateLog = (log, patch) => {
     setEditTableLogs((prev) => {
       const i = prev.findIndex((l) => l.id === log.id);
@@ -292,22 +234,44 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     });
   };
 
-  // Save the cardio metric fields for one log (mirror of the reps input's onBlur).
-  const saveCardioFields = async (log, patch) => {
+  // Persist one set immediately (fired on blur of the reps/cardio fields).
+  const commitLog = async (log) => {
     if (!log.id) return;
+    const isCardio = log.Exercise?.type === 'cardio';
+    const body = {
+      notes: log.notes,
+      rpe: numOrNull(log.rpe),
+      rir: numOrNull(log.rir),
+      ...(isCardio
+        ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
+        : { reps: log.reps, weight: log.weight }),
+    };
     try {
       const accessToken = await getToken();
-      await api.put(
-        `/exercise-log/${log.id}`,
-        {
-          durationSeconds: parseDuration(patch.durationSeconds ?? log.durationSeconds),
-          distance: numOrNull(patch.distance ?? log.distance),
-          notes: log.notes,
-        },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+      await api.put(`/exercise-log/${log.id}`, body, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
     } catch (err) {
       console.error('Failed to save:', err);
+    }
+  };
+
+  const saveAllEdits = async () => {
+    const accessToken = await getToken();
+    for (const log of editTableLogs) {
+      if (!log.id) continue;
+      const isCardio = log.Exercise?.type === 'cardio';
+      const body = {
+        notes: log.notes,
+        rpe: numOrNull(log.rpe),
+        rir: numOrNull(log.rir),
+        ...(isCardio
+          ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
+          : { reps: log.reps, weight: log.weight }),
+      };
+      await api.put(`/exercise-log/${log.id}`, body, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
     }
   };
 
@@ -348,7 +312,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     }
   };
 
-  const handleCancelSession = async (sessionLogId) => {
+  const handleCancelSession = async () => {
     try {
       const accessToken = await getToken();
       await api.delete(`/session/${sessionLogId}`, {
@@ -359,25 +323,6 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     } catch (err) {
       alert('Failed to cancel session. Please try again.');
       console.error('Error deleting session:', err);
-    }
-  };
-
-  const saveAllEdits = async () => {
-    const accessToken = await getToken();
-    for (const log of editTableLogs) {
-      if (!log.id) continue;
-      const isCardio = log.Exercise?.type === 'cardio';
-      const body = {
-        notes: log.notes,
-        rpe: numOrNull(log.rpe),
-        rir: numOrNull(log.rir),
-        ...(isCardio
-          ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
-          : { reps: log.reps, weight: log.weight }),
-      };
-      await api.put(`/exercise-log/${log.id}`, body, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
     }
   };
 
@@ -457,27 +402,50 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     }
   };
 
+  // Apply a new exercise order (array of names), reindexing every log and persisting
+  // only the exercises whose position actually changed. Shared by the desktop arrows
+  // and the mobile drag handle inside the builder view.
+  const applyExerciseOrder = async (order) => {
+    const orderByName = Object.fromEntries(order.map((name, i) => [name, i]));
+    const changed = new Set(
+      order.filter((name) => {
+        const current = editTableLogs.find((l) => l.Exercise?.name === name)?.orderIndex;
+        return current !== orderByName[name];
+      })
+    );
+    if (changed.size === 0) return;
+    const updated = editTableLogs.map((l) => ({
+      ...l,
+      orderIndex: orderByName[l.Exercise?.name] ?? l.orderIndex,
+    }));
+    setEditTableLogs(updated);
+    try {
+      const accessToken = await getToken();
+      for (const l of updated) {
+        if (l.id && changed.has(l.Exercise?.name)) {
+          await api.put(
+            `/exercise-log/${l.id}`,
+            { orderIndex: l.orderIndex },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reorder exercise:', err);
+    }
+  };
+
   useEffect(() => {
     handleGetSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionLogId]);
 
   useEffect(() => {
     if (session) {
       setSessionName(session.name || defaultSessionName());
-      if (session.notes) {
-        setSessionNotes(session.notes);
-        setShowNotes(true);
-      }
+      if (session.notes) setSessionNotes(session.notes);
     }
   }, [session]);
-
-  // Presentational running total (kg): sum of reps * weight across all sets
-  const totalKg = Array.isArray(editTableLogs)
-    ? editTableLogs.reduce(
-        (sum, log) => sum + ((Number(log.reps) * Number(log.weight)) || 0),
-        0
-      )
-    : 0;
 
   if (loading) {
     return (
@@ -502,458 +470,53 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     );
   }
 
-  // Group logs by exercise name (preserved grouping logic)
-  const groupedLogs =
-    Array.isArray(editTableLogs) && editTableLogs.length > 0
-      ? Object.entries(
-          editTableLogs.reduce((acc, log) => {
-            const exerciseName = log.Exercise.name;
-            if (!acc[exerciseName]) acc[exerciseName] = [];
-            acc[exerciseName].push(log);
-            return acc;
-          }, {})
-        )
-          // Order by each exercise's orderIndex; fall back to first-appearance for
-          // legacy logs that predate the order column.
-          .map(([name, logs], i) => ({ name, logs, order: logs[0]?.orderIndex ?? i }))
-          .sort((a, b) => a.order - b.order)
-          .map((g) => [g.name, g.logs])
-      : [];
+  if (!session) return null;
 
-  // Apply a new exercise order (array of names), reindexing every log and
-  // persisting only the exercises whose position actually changed. Shared by the
-  // desktop up/down arrows and the mobile drag handle.
-  const applyExerciseOrder = async (order) => {
-    const prevByName = Object.fromEntries(groupedLogs.map(([name], i) => [name, i]));
-    const orderByName = Object.fromEntries(order.map((name, i) => [name, i]));
-    const changed = new Set(
-      order.filter((name) => prevByName[name] !== orderByName[name])
-    );
-    if (changed.size === 0) return;
-    const updated = editTableLogs.map((l) => ({
-      ...l,
-      orderIndex: orderByName[l.Exercise?.name] ?? l.orderIndex,
-    }));
-    setEditTableLogs(updated);
-    try {
-      const accessToken = await getToken();
-      for (const l of updated) {
-        if (l.id && changed.has(l.Exercise?.name)) {
-          await api.put(
-            `/exercise-log/${l.id}`,
-            { orderIndex: l.orderIndex },
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Failed to reorder exercise:', err);
-    }
-  };
-
-  // Move an exercise up/down one slot (desktop arrows).
-  const moveExercise = (exerciseName, direction) => {
-    const order = groupedLogs.map(([name]) => name);
-    const idx = order.indexOf(exerciseName);
-    const target = idx + direction;
-    if (target < 0 || target >= order.length) return;
-    [order[idx], order[target]] = [order[target], order[idx]];
-    applyExerciseOrder(order);
-  };
+  const statusEyebrow = editMode ? (
+    <Eyebrow>EDITING SESSION</Eyebrow>
+  ) : (
+    <span className="flex items-center gap-2">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-clay opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-clay" />
+      </span>
+      <Eyebrow>IN PROGRESS · {formatElapsed(elapsedSeconds)}</Eyebrow>
+    </span>
+  );
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      {session && (
-        <div key={session.id}>
-          {/* Header — title with an edit button that toggles inline editing */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              {editMode ? (
-                <Eyebrow>EDITING SESSION</Eyebrow>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-clay opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-clay" />
-                  </span>
-                  <Eyebrow>IN PROGRESS · {formatElapsed(elapsedSeconds)}</Eyebrow>
-                </span>
-              )}
-              {editingName ? (
-                <input
-                  data-title
-                  autoFocus
-                  type="text"
-                  id="sessionName"
-                  name="sessionName"
-                  aria-label="Session name"
-                  placeholder="New session"
-                  value={sessionName}
-                  onChange={(e) => setSessionName(e.target.value)}
-                  onBlur={() => setEditingName(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === 'Escape') {
-                      e.preventDefault();
-                      setEditingName(false);
-                    }
-                  }}
-                  className="mt-1 w-full bg-transparent text-2xl font-[650] tracking-[-0.02em] text-ink placeholder:text-muted focus:outline-none"
-                />
-              ) : (
-                <div className="mt-1 flex items-center gap-1.5">
-                  <h1 className={`truncate text-2xl ${sessionName ? '' : 'text-muted'}`}>
-                    {sessionName || 'New session'}
-                  </h1>
-                  <button
-                    type="button"
-                    aria-label="Edit session name"
-                    title="Edit name"
-                    onClick={() => setEditingName(true)}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-clay"
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="shrink-0 text-sm text-muted">
-              <span className={totalKg > 0 ? 'font-bold text-clay' : 'font-semibold text-ink'}>
-                {totalKg.toLocaleString()}
-              </span>{' '}
-              kg total
-            </div>
-          </div>
-
-          {/* Session notes — optional; collapsed behind a button until wanted. */}
-          {showNotes ? (
-            <Card className="group mt-5 border border-clay-tintborder bg-surface-2 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-clay-tint text-clay">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 6h14M5 12h14M5 18h9" />
-                    </svg>
-                  </span>
-                  <Eyebrow>Session notes</Eyebrow>
-                </div>
-                <button
-                  type="button"
-                  title="Remove note"
-                  onClick={() => {
-                    setShowNotes(false);
-                    setSessionNotes('');
-                  }}
-                  className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-surface hover:text-danger"
-                >
-                  ✕
-                </button>
-              </div>
-              <textarea
-                className={`${inputClass} mt-3 min-h-[84px] resize-y`}
-                placeholder="How did the session go?"
-                value={sessionNotes}
-                onChange={(e) => setSessionNotes(e.target.value)}
-              />
-            </Card>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowNotes(true)}
-              className={`${dashedButtonClass} mt-5`}
-            >
-              + Add session note
-            </button>
-          )}
-
-          {/* Exercises */}
-          {groupedLogs.length > 0 && (
-            <>
-            {/* RPE/RIR legend — mobile only (the header tooltips are hover-only) */}
-            <p className="mt-4 text-center text-[11px] text-muted sm:hidden">
-              RPE = perceived exertion (1–10) · RIR = reps in reserve
-            </p>
-            <SortableColumn
-              items={groupedLogs.map(([name]) => name)}
-              onReorder={applyExerciseOrder}
-              className="mt-2 flex flex-col gap-5 sm:mt-5"
-            >
-              {groupedLogs.map(([exerciseName, logs], groupIndex) => {
-                const isCardio = logs[0]?.Exercise?.type === 'cardio';
-                return (
-                <SortableRow key={exerciseName} id={exerciseName}>
-                  {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
-                <div ref={setNodeRef} style={style}>
-                <AccentCard
-                  contentClassName="p-5"
-                  className={isDragging ? 'shadow-xl ring-2 ring-clay-tint' : ''}
-                >
-                  <div className="mb-3 flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-semibold text-ink">{exerciseName}</div>
-                      {isCardio && (
-                        <span className="mt-1 inline-block rounded-full bg-clay-tint px-2 py-0.5 text-[11px] font-semibold text-clay">
-                          Cardio
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-shrink-0 items-center gap-2">
-                      {coarse ? (
-                        <button
-                          type="button"
-                          aria-label="Hold and drag to reorder"
-                          className="grid h-8 w-8 cursor-grab touch-none select-none place-items-center rounded-lg border border-line-strong text-ink active:cursor-grabbing active:bg-clay-tint active:text-clay"
-                          {...handleProps}
-                        >
-                          <GripIcon />
-                        </button>
-                      ) : (
-                        <div className="flex items-center overflow-hidden rounded-lg border border-line-strong">
-                          <button
-                            type="button"
-                            title="Move up"
-                            disabled={groupIndex === 0}
-                            onClick={() => moveExercise(exerciseName, -1)}
-                            className="grid h-8 w-8 place-items-center text-ink transition-colors hover:bg-clay-tint hover:text-clay disabled:pointer-events-none disabled:opacity-25"
-                          >
-                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
-                          </button>
-                          <div className="h-8 w-px bg-line" />
-                          <button
-                            type="button"
-                            title="Move down"
-                            disabled={groupIndex === groupedLogs.length - 1}
-                            onClick={() => moveExercise(exerciseName, 1)}
-                            className="grid h-8 w-8 place-items-center text-ink transition-colors hover:bg-clay-tint hover:text-clay disabled:pointer-events-none disabled:opacity-25"
-                          >
-                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-                          </button>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        title="Delete exercise"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this exercise?')) {
-                            deleteExercise(exerciseName);
-                          }
-                        }}
-                        className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M10 11v6M14 11v6" /></svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {!isSorting && (
-                  <>
-                  {/* Table header */}
-                  <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
-                    <span>Set</span>
-                    <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
-                    <span className="text-center">{isCardio ? 'Km' : 'Kg'}</span>
-                    <span
-                      className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
-                      title="RPE — Rate of Perceived Exertion: how hard the set felt (1 easy → 10 max effort)"
-                    >
-                      RPE
-                    </span>
-                    {isCardio ? (
-                      <span className="text-center">Pace</span>
-                    ) : (
-                      <span
-                        className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
-                        title="RIR — Reps In Reserve: how many more good reps you could have done"
-                      >
-                        RIR
-                      </span>
-                    )}
-                    <span className="hidden sm:block">Notes</span>
-                  </div>
-
-                  {/* Set rows */}
-                  {logs.map((log, index) => (
-                    <SwipeToDelete
-                      key={log.id ?? `tmp-${index}`}
-                      enabled={coarse}
-                      onDelete={() => handleDeleteSet(log)}
-                    >
-                    <div
-                      className={`grid grid-cols-[30px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2 ${
-                        index > 0 ? 'border-t border-line' : ''
-                      }`}
-                    >
-                      <div className="row-span-2 flex items-center self-center sm:row-span-1">
-                        <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
-                          {index + 1}
-                        </span>
-                      </div>
-                      {isCardio ? (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="mm:ss"
-                          className={numInputClass}
-                          value={log.durationSeconds || ''}
-                          onChange={(e) => updateLog(log, { durationSeconds: formatTimeInput(e.target.value) })}
-                          onBlur={() => saveCardioFields(log, {})}
-                        />
-                      ) : (
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="–"
-                          className={numInputClass}
-                          value={log.reps}
-                          onChange={(e) => {
-                            if (Number(e.target.value) < 0) return;
-                            updateLog(log, { reps: e.target.value });
-                          }}
-                          onBlur={async (e) => {
-                            if (!log.id) return;
-                            try {
-                              const accessToken = await getToken();
-                              await api.put(
-                                `/exercise-log/${log.id}`,
-                                { reps: e.target.value, weight: log.weight, notes: log.notes },
-                                { headers: { Authorization: `Bearer ${accessToken}` } }
-                              );
-                            } catch (err) {
-                              console.error('Failed to save:', err);
-                            }
-                          }}
-                        />
-                      )}
-                      {isCardio ? (
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="–"
-                          className={numInputClass}
-                          value={log.distance ?? ''}
-                          onChange={(e) => {
-                            if (Number(e.target.value) < 0) return;
-                            updateLog(log, { distance: e.target.value });
-                          }}
-                          onBlur={() => saveCardioFields(log, {})}
-                        />
-                      ) : (
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="–"
-                          className={numInputClass}
-                          value={log.weight}
-                          onChange={(e) => {
-                            if (Number(e.target.value) < 0) return;
-                            updateLog(log, { weight: e.target.value });
-                          }}
-                        />
-                      )}
-                      <ScoreSelect
-                        value={log.rpe ?? ''}
-                        options={RPE_OPTIONS}
-                        onChange={(v) => updateLog(log, { rpe: v })}
-                      />
-                      {isCardio ? (
-                        <div className="grid place-items-center text-center text-sm text-muted">
-                          {pace(parseDuration(log.durationSeconds), log.distance) || '–'}
-                        </div>
-                      ) : (
-                        <ScoreSelect
-                          value={log.rir ?? ''}
-                          options={RIR_OPTIONS}
-                          onChange={(v) => updateLog(log, { rir: v })}
-                        />
-                      )}
-                      <div className="col-span-4 col-start-2 mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:col-start-auto sm:mt-0">
-                        <input
-                          type="text"
-                          placeholder="Notes"
-                          className={`${inputClass} min-w-0 flex-1`}
-                          value={log.notes || ''}
-                          onChange={(e) => {
-                            const updatedLogs = [...editTableLogs];
-                            const globalIndex = editTableLogs.findIndex((l) => l.id === log.id);
-                            updatedLogs[globalIndex] = {
-                              ...updatedLogs[globalIndex],
-                              notes: e.target.value,
-                            };
-                            setEditTableLogs(updatedLogs);
-                          }}
-                        />
-                        {!coarse && (
-                          <button
-                            type="button"
-                            title="Delete set"
-                            onClick={() => handleDeleteSet(log)}
-                            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    </SwipeToDelete>
-                  ))}
-
-                  <div className="mt-2">
-                    <button className={dashedButtonClass} onClick={() => handleAddSet(exerciseName)}>
-                      + Add set
-                    </button>
-                  </div>
-                  </>
-                  )}
-                </AccentCard>
-                </div>
-                  )}
-                </SortableRow>
-                );
-              })}
-            </SortableColumn>
-            </>
-          )}
-
-          {/* Add exercise / cardio */}
-          <div className="mt-5 flex flex-col gap-2">
-            <button className={dashedButtonClass} onClick={() => setPickerType('strength')}>
-              + Add exercise
-            </button>
-            <button className={dashedButtonClass} onClick={() => setPickerType('cardio')}>
-              + Add cardio
-            </button>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-2">
-            {editMode ? (
-              <Button variant="ghost" onClick={() => navigate('/session-history')}>
-                Cancel
-              </Button>
-            ) : (
-              <Button variant="danger" onClick={() => handleCancelSession(session.id)}>
-                Discard session
-              </Button>
-            )}
-            <Button onClick={handleEndSession} disabled={saving}>
-              {saving ? 'Saving…' : editMode ? 'Save changes' : 'Finish session'}
+    <SessionBuilderView
+      name={sessionName}
+      onNameChange={setSessionName}
+      statusEyebrow={statusEyebrow}
+      note={sessionNotes}
+      onNoteChange={setSessionNotes}
+      logs={editTableLogs}
+      exercises={exercises}
+      onAddExercise={handleAddExercise}
+      onAddSet={handleAddSet}
+      onUpdateLog={updateLog}
+      onCommitLog={commitLog}
+      onDeleteSet={handleDeleteSet}
+      onDeleteExercise={deleteExercise}
+      onReorder={applyExerciseOrder}
+      footer={
+        <>
+          {editMode ? (
+            <Button variant="ghost" onClick={() => navigate('/session-history')}>
+              Cancel
             </Button>
-          </div>
-        </div>
-      )}
-
-      {pickerType && (
-        <ExercisePickerModal
-          type={pickerType}
-          exercises={exercises}
-          onClose={() => setPickerType(null)}
-          onSelect={(exercise) => handleAddExercise(exercise)}
-        />
-      )}
-    </div>
+          ) : (
+            <Button variant="danger" onClick={handleCancelSession}>
+              Discard session
+            </Button>
+          )}
+          <Button onClick={handleEndSession} disabled={saving}>
+            {saving ? 'Saving…' : editMode ? 'Save changes' : 'Finish session'}
+          </Button>
+        </>
+      }
+    />
   );
 }
 

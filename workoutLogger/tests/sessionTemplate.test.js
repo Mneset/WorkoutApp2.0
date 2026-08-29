@@ -83,7 +83,6 @@ describe('Session template tests', () => {
 
     test('Creating a session template with missing fields should result in a 400', async () => {
         const sessionData = {
-            name: "Leg Day",
             workoutPlanId: 2
         }
 

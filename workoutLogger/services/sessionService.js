@@ -63,12 +63,18 @@ class SessionService {
                     }]
                 })
 
-                if(sessionTemplate && user.workoutPlanId) {
-                    sessionData.sessionTemplateId = sessionTemplateId,
-                    sessionData.weekNumber = user.currentWeek,
-                    sessionData.workoutPlanId = user.workoutPlanId,
-                    sessionData.name = `${sessionTemplate.name} - Week ${user.currentWeek}`
-                    // Carry the plan day's note into the started session as its starting note.
+                if(sessionTemplate) {
+                    if (sessionTemplate.workout_plan_id && user?.workoutPlanId) {
+                        // Plan day: attribute the session to the active plan/week.
+                        sessionData.sessionTemplateId = sessionTemplateId,
+                        sessionData.weekNumber = user.currentWeek,
+                        sessionData.workoutPlanId = user.workoutPlanId,
+                        sessionData.name = `${sessionTemplate.name} - Week ${user.currentWeek}`
+                    } else {
+                        // Standalone template: just a named session, no plan attribution.
+                        sessionData.name = sessionTemplate.name
+                    }
+                    // Carry the template's note into the started session as its starting note.
                     if (sessionTemplate.notes) sessionData.notes = sessionTemplate.notes
                 }
             }
@@ -105,7 +111,7 @@ class SessionService {
                             weight: isCardio ? null : (set.weight ?? 0),
                             durationSeconds: isCardio ? (set.durationSeconds ?? null) : null,
                             distance: isCardio ? (set.distance ?? null) : null,
-                            notes: '',
+                            notes: set.notes ?? '',
                             rpe: set.rpe ?? null,
                             rir: isCardio ? null : (set.rir ?? null),
                             sessionLogId: session.id

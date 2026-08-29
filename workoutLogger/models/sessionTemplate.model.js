@@ -15,13 +15,20 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 0
         },
+        // Null for standalone templates (which are owned via user_id instead).
         workout_plan_id: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
             references: {
                 model: 'workoutplan',
                 key: 'id'
             }
+        },
+        // Owner of a standalone template; null for plan templates.
+        userId: {
+            type: DataTypes.STRING,
+            field: 'user_id',
+            allowNull: true
         },
         notes: {
             type: DataTypes.TEXT,

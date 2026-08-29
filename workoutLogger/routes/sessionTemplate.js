@@ -24,6 +24,21 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Standalone (non-plan) templates owned by a user. Must precede '/:id'.
+router.get('/standalone', async (req, res) => {
+    const { userId } = req.query;
+    if (!userId) {
+        return error(res, 'userId is required', 400);
+    }
+    try {
+        const templates = await sessionTemplateService.getStandaloneTemplatesByUser(userId);
+        return success(res, templates);
+    } catch (err) {
+        console.error('Error fetching standalone templates:', err);
+        return error(res, 'Failed to fetch standalone templates');
+    }
+});
+
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -39,14 +54,19 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', validate(createSessionTemplateSchema), async (req, res) => {
-    const { name, dayOffset, workoutPlanId, notes } = req.body;
+    const { name, dayOffset, workoutPlanId, userId, notes } = req.body;
     try {
-        const workoutPlan = await workoutPlanService.getWorkoutPlanById(workoutPlanId);
-        if (!workoutPlan) {
-            return error(res, 'Workout plan not found', 404);
+        // Plan templates must reference an existing plan; standalone templates skip this.
+        if (workoutPlanId) {
+            const workoutPlan = await workoutPlanService.getWorkoutPlanById(workoutPlanId);
+            if (!workoutPlan) {
+                return error(res, 'Workout plan not found', 404);
+            }
+        } else if (!userId) {
+            return error(res, 'A template needs either a workoutPlanId or a userId', 400);
         }
 
-        const session = await sessionTemplateService.createTemplate(name, dayOffset, workoutPlanId, notes ?? null);
+        const session = await sessionTemplateService.createTemplate(name, dayOffset, workoutPlanId ?? null, notes ?? null, userId ?? null);
         return success(res, session, 201);
     } catch (err) {
         console.error('Error creating session template:', err);

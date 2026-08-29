@@ -8,7 +8,8 @@ const setTemplateSchema = z.object({
     durationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     distance: z.coerce.number().nonnegative().nullable().optional(),
     rpe: z.coerce.number().min(0).max(10).nullable().optional(),
-    rir: z.coerce.number().int().nonnegative().nullable().optional()
+    rir: z.coerce.number().int().nonnegative().nullable().optional(),
+    notes: z.string().nullable().optional()
 });
 
 // baseReps (strength) and baseDurationSeconds/baseDistance (cardio) are all optional —
