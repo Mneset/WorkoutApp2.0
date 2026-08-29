@@ -13,6 +13,11 @@ const createExerciseLogSchema = z.object({
     notes: z.string().optional().nullable(),
     rpe: z.coerce.number().min(0).max(10).nullable().optional(),
     rir: z.coerce.number().int().nonnegative().nullable().optional(),
+    // Prescription placeholders carried from a plan/template (target_reps may be a range).
+    targetReps: z.union([z.string(), z.number()]).nullable().optional(),
+    targetWeight: z.coerce.number().nonnegative().nullable().optional(),
+    targetDurationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
+    targetDistance: z.coerce.number().nonnegative().nullable().optional(),
     sessionLogId: z.number().int().positive('sessionLogId is required')
 });
 

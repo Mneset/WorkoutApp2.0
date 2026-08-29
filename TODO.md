@@ -25,7 +25,22 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 - [x] **Per-set plan/template prescriptions + notes** — `exercisetemplate.sets` JSON
       (migration `026`) and `notes` on session/exercise templates (migration `027`).
 
+## Recently added (cont.)
+
+- [x] **Prescriptions as placeholders + rep ranges** — plan/template values ride into a
+      started session as *targets* on each log (migration `030`: `target_reps` (string, so
+      it holds ranges like "8-12"), `target_weight`, `target_duration_seconds`,
+      `target_distance`); the log inputs start empty and show the target as a grey
+      placeholder (fixes the "type 1 → 110" append bug). RPE/RIR are still pre-filled.
+      Reps became a free-text range field in the plan & template builders.
+- [x] **Weight supports decimals** — `exerciselog.weight` INTEGER → FLOAT (migration `029`).
+
 ## Backlog / ideas
+
+- **Weight as % of 1RM in plans/templates** — let a prescribed weight be entered as a
+  percentage of the user's 1RM (e.g. "75%") instead of an absolute kg, resolved to a real
+  target when a session is started. Needs a per-exercise 1RM somewhere and a weight field
+  that accepts either kg or `%`. (Requested alongside rep ranges; deferred.)
 
 - [x] **Plan builder exercise selection** — replaced the plain ~873-option `<select>` with
   the shared `ExercisePickerModal`: each template day has split **"+ Add exercise" /

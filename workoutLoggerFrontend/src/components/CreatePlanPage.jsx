@@ -211,21 +211,11 @@ export default function CreatePlanPage() {
         return;
       }
       for (const ex of st.exercises) {
-        const isCardio = ex.type === 'cardio';
+        // Prescribed values are placeholders now (they can be blank or a range like
+        // "8-12"), so a set only needs to exist — no minimum reps/time required.
         if (!ex.sets || ex.sets.length === 0) {
           setError('Every exercise needs at least 1 set');
           return;
-        }
-        for (const set of ex.sets) {
-          if (isCardio) {
-            if (!parseDuration(set.durationSeconds) && !(Number(set.distance) > 0)) {
-              setError('Every cardio set needs a time or distance');
-              return;
-            }
-          } else if (!(Number(set.reps) >= 1)) {
-            setError('Every set needs at least 1 rep');
-            return;
-          }
         }
       }
     }
@@ -278,7 +268,8 @@ export default function CreatePlanPage() {
                   rpe: numOrNull(set.rpe),
                 }
               : {
-                  reps: Number(set.reps),
+                  // Reps kept as a string so a range ("8-12") survives; blank → null.
+                  reps: (set.reps ?? '').toString().trim() || null,
                   weight: Number(set.weight) || null,
                   rpe: numOrNull(set.rpe),
                   rir: numOrNull(set.rir),
@@ -286,6 +277,9 @@ export default function CreatePlanPage() {
           );
           // Representative base_* values (from set 1) keep legacy consumers/fallbacks sane.
           const first = sets[0] || {};
+          // baseReps (a fallback INT column) only takes a single positive number.
+          const firstRepsStr = (first.reps ?? '').toString().trim();
+          const baseReps = /^\d+$/.test(firstRepsStr) && Number(firstRepsStr) > 0 ? Number(firstRepsStr) : null;
           await api.post(
             '/exercise-template',
             {
@@ -302,7 +296,7 @@ export default function CreatePlanPage() {
                     baseDistance: first.distance ?? null,
                   }
                 : {
-                    baseReps: first.reps ?? null,
+                    baseReps,
                     baseWeight: first.weight ?? null,
                     baseRir: first.rir ?? null,
                   }),
@@ -532,15 +526,14 @@ export default function CreatePlanPage() {
                       />
                     ) : (
                       <input
-                        type="number"
-                        min="0"
-                        placeholder="–"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="e.g. 8-12"
                         className={`${inputClass} w-full px-1.5 text-center`}
                         value={set.reps}
-                        onChange={(e) => {
-                          if (Number(e.target.value) < 0) return;
-                          updateSetField(st.tempId, ex.tempId, sIdx, 'reps', e.target.value);
-                        }}
+                        onChange={(e) =>
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'reps', e.target.value)
+                        }
                       />
                     )}
                     {isCardio ? (
@@ -560,6 +553,8 @@ export default function CreatePlanPage() {
                       <input
                         type="number"
                         min="0"
+                        step="0.01"
+                        inputMode="decimal"
                         placeholder="–"
                         className={`${inputClass} w-full px-1.5 text-center`}
                         value={set.weight}

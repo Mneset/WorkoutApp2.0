@@ -5,7 +5,7 @@ import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
 import AccentCard from './AccentCard';
 import { SortableColumn, SortableRow, GripIcon } from './Sortable';
-import { parseDuration, formatTimeInput, pace } from '../duration';
+import { parseDuration, formatDuration, formatTimeInput, pace } from '../duration';
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
@@ -63,7 +63,12 @@ export default function SessionBuilderView({
   onDeleteExercise,
   onReorder,
   footer,
+  // Template-building mode: reps is a free-text field (allows a range like "8-12") and
+  // fields show generic placeholders instead of a prescribed target.
+  templateMode = false,
 }) {
+  // A prescribed target → placeholder text (or a dash when there's none).
+  const ph = (v) => (v != null && v !== '' ? String(v) : '–');
   const [editingName, setEditingName] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
@@ -333,22 +338,34 @@ export default function SessionBuilderView({
                                       <input
                                         type="text"
                                         inputMode="numeric"
-                                        placeholder="mm:ss"
+                                        placeholder={templateMode || !log.targetDurationSeconds ? 'mm:ss' : formatDuration(log.targetDurationSeconds)}
                                         className={numInputClass}
                                         value={log.durationSeconds || ''}
                                         onChange={(e) => onUpdateLog(log, { durationSeconds: formatTimeInput(e.target.value) })}
                                         onBlur={() => commit(log)}
                                       />
+                                    ) : templateMode ? (
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="e.g. 8-12"
+                                        className={numInputClass}
+                                        value={log.reps ?? ''}
+                                        onChange={(e) => onUpdateLog(log, { reps: e.target.value })}
+                                      />
                                     ) : (
                                       <input
-                                        type="number"
-                                        min="0"
-                                        placeholder="–"
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder={ph(log.targetReps)}
                                         className={numInputClass}
-                                        value={log.reps}
+                                        value={log.reps ?? ''}
                                         onChange={(e) => {
-                                          if (Number(e.target.value) < 0) return;
-                                          onUpdateLog(log, { reps: e.target.value });
+                                          const v = e.target.value;
+                                          // Logging reps must be a whole number (ranges/decimals
+                                          // are only for the plan/template builder).
+                                          if (v !== '' && !/^\d+$/.test(v)) return;
+                                          onUpdateLog(log, { reps: v });
                                         }}
                                         onBlur={() => commit(log)}
                                       />
@@ -358,7 +375,8 @@ export default function SessionBuilderView({
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        placeholder="–"
+                                        inputMode="decimal"
+                                        placeholder={templateMode ? '–' : ph(log.targetDistance)}
                                         className={numInputClass}
                                         value={log.distance ?? ''}
                                         onChange={(e) => {
@@ -371,19 +389,27 @@ export default function SessionBuilderView({
                                       <input
                                         type="number"
                                         min="0"
-                                        placeholder="–"
+                                        step="0.01"
+                                        inputMode="decimal"
+                                        placeholder={templateMode ? '–' : ph(log.targetWeight)}
                                         className={numInputClass}
-                                        value={log.weight}
+                                        value={log.weight ?? ''}
                                         onChange={(e) => {
                                           if (Number(e.target.value) < 0) return;
                                           onUpdateLog(log, { weight: e.target.value });
                                         }}
+                                        onBlur={() => commit(log)}
                                       />
                                     )}
                                     <ScoreSelect
                                       value={log.rpe ?? ''}
                                       options={RPE_OPTIONS}
-                                      onChange={(v) => onUpdateLog(log, { rpe: v })}
+                                      onChange={(v) => {
+                                        onUpdateLog(log, { rpe: v });
+                                        // Dropdowns have no blur — persist the change now so it
+                                        // survives leaving and resuming the session.
+                                        commit({ ...log, rpe: v });
+                                      }}
                                     />
                                     {isCardio ? (
                                       <div className="grid place-items-center text-center text-sm text-muted">
@@ -393,7 +419,10 @@ export default function SessionBuilderView({
                                       <ScoreSelect
                                         value={log.rir ?? ''}
                                         options={RIR_OPTIONS}
-                                        onChange={(v) => onUpdateLog(log, { rir: v })}
+                                        onChange={(v) => {
+                                          onUpdateLog(log, { rir: v });
+                                          commit({ ...log, rir: v });
+                                        }}
                                       />
                                     )}
                                     <div className="col-span-4 col-start-2 mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:col-start-auto sm:mt-0">
@@ -403,6 +432,7 @@ export default function SessionBuilderView({
                                         className={`${inputClass} min-w-0 flex-1`}
                                         value={log.notes || ''}
                                         onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
+                                        onBlur={() => commit(log)}
                                       />
                                       {!coarse && (
                                         <button

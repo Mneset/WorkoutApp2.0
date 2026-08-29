@@ -346,6 +346,11 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
           notes: lastLog.notes,
           rpe: numOrNull(lastLog.rpe),
           rir: numOrNull(lastLog.rir),
+          // Carry the prescription placeholders onto the new set too.
+          targetReps: lastLog.targetReps ?? null,
+          targetWeight: lastLog.targetWeight ?? null,
+          targetDurationSeconds: lastLog.targetDurationSeconds ?? null,
+          targetDistance: lastLog.targetDistance ?? null,
           sessionLogId,
           ...(isCardio
             ? { durationSeconds: parseDuration(lastLog.durationSeconds), distance: numOrNull(lastLog.distance) }

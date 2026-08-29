@@ -196,11 +196,20 @@ export default function DashboardPage() {
     }
   };
 
-  // Never start a second session while one is in progress — prompt to resume/discard.
-  const startSession = (sessionTemplateId) => {
+  // Never start a second session while one has real logged work — prompt to resume/discard.
+  // An empty, abandoned session (e.g. one New Session created and left) is just discarded.
+  const startSession = async (sessionTemplateId) => {
     if (inProgress) {
-      setResumePrompt({ templateId: sessionTemplateId ?? null });
-      return;
+      if ((inProgress.ExerciseLogs || []).length > 0) {
+        setResumePrompt({ templateId: sessionTemplateId ?? null });
+        return;
+      }
+      try {
+        const token = await getToken();
+        await api.delete(`/session/${inProgress.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      } catch (err) {
+        console.error('Failed to clear empty session:', err);
+      }
     }
     doStartSession(sessionTemplateId);
   };

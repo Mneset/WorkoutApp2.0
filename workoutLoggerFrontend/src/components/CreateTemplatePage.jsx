@@ -157,7 +157,8 @@ export default function CreateTemplatePage() {
                 notes: s.notes?.trim() || null,
               }
             : {
-                reps: numOrNull(s.reps),
+                // Reps kept as a string so a range ("8-12") survives; blank → null.
+                reps: (s.reps ?? '').toString().trim() || null,
                 weight: numOrNull(s.weight),
                 rpe: numOrNull(s.rpe),
                 rir: numOrNull(s.rir),
@@ -165,6 +166,9 @@ export default function CreateTemplatePage() {
               }
         );
         const first = sets[0] || {};
+        // baseReps (a fallback INT column) only takes a single positive number.
+        const firstRepsStr = (first.reps ?? '').toString().trim();
+        const baseReps = /^\d+$/.test(firstRepsStr) && Number(firstRepsStr) > 0 ? Number(firstRepsStr) : null;
         await api.post(
           '/exercise-template',
           {
@@ -177,8 +181,7 @@ export default function CreateTemplatePage() {
             ...(isCardio
               ? { baseDurationSeconds: first.durationSeconds ?? null, baseDistance: first.distance ?? null }
               : {
-                  // baseReps must be positive if present; fall back to null otherwise.
-                  baseReps: first.reps > 0 ? first.reps : null,
+                  baseReps,
                   baseWeight: first.weight ?? null,
                   baseRir: first.rir ?? null,
                 }),
@@ -216,6 +219,7 @@ export default function CreateTemplatePage() {
         name={name}
         onNameChange={setName}
         namePlaceholder="New template"
+        templateMode
         statusEyebrow={<Eyebrow>NEW TEMPLATE</Eyebrow>}
         note={notes}
         onNoteChange={setNotes}

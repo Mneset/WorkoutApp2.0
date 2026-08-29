@@ -6,6 +6,7 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 import FullPlanModal from './FullPlanModal';
+import FullTemplateModal from './FullTemplateModal';
 
 export default function PlansPage() {
   const { getToken, user } = useAuth();
@@ -22,6 +23,7 @@ export default function PlansPage() {
   const [activePlanId, setActivePlanId] = useState(null);
   const [modal, setModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [starting, setStarting] = useState(false);
@@ -82,10 +84,21 @@ export default function PlansPage() {
       const existing = await api.get('/session', { params: { userId: user.sub }, headers });
       const inProgress = (existing.data.data.result || []).find((s) => !s.sessionDateEnd);
       if (inProgress) {
-        alert('You already have a session in progress. Finish or discard it first.');
-        handleSessionStarted(inProgress.id);
-        navigate('/new-session');
-        return;
+        const hasWork = (inProgress.ExerciseLogs || []).length > 0;
+        if (hasWork) {
+          // A real in-progress workout — don't clobber it.
+          const go = window.confirm(
+            'You have a session in progress with logged sets. Open it to finish or discard it first?'
+          );
+          if (go) {
+            handleSessionStarted(inProgress.id);
+            navigate('/new-session');
+          }
+          return;
+        }
+        // An empty, abandoned session (e.g. one New Session created and left) — just
+        // discard it and start the template.
+        await api.delete(`/session/${inProgress.id}`, { headers });
       }
       const res = await api.post(
         '/session',
@@ -110,6 +123,7 @@ export default function PlansPage() {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+      setSelectedTemplate(null);
     } catch (err) {
       console.error('Error deleting template:', err);
       alert('Failed to delete template.');
@@ -244,22 +258,16 @@ export default function PlansPage() {
           {templates.map((tpl) => {
             const exCount = tpl.ExerciseTemplates ? tpl.ExerciseTemplates.length : 0;
             return (
-              <Card key={tpl.id} className="flex flex-col p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate font-[650]">{tpl.name}</div>
-                    <div className="mt-1 font-mono text-xs text-muted">
-                      {exCount} {exCount === 1 ? 'exercise' : 'exercises'}
-                    </div>
+              <Card
+                key={tpl.id}
+                className="flex cursor-pointer flex-col p-5"
+                onClick={() => setSelectedTemplate(tpl)}
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-[650]">{tpl.name}</div>
+                  <div className="mt-1 font-mono text-xs text-muted">
+                    {exCount} {exCount === 1 ? 'exercise' : 'exercises'}
                   </div>
-                  <button
-                    type="button"
-                    title="Delete template"
-                    onClick={() => deleteTemplate(tpl.id)}
-                    className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M10 11v6M14 11v6" /></svg>
-                  </button>
                 </div>
                 {tpl.ExerciseTemplates && tpl.ExerciseTemplates.length > 0 && (
                   <ul className="mt-3 space-y-0.5 text-sm text-muted">
@@ -274,7 +282,13 @@ export default function PlansPage() {
                   </ul>
                 )}
                 <div className="mt-4 pt-1">
-                  <Button onClick={() => startFromTemplate(tpl.id)} disabled={starting}>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startFromTemplate(tpl.id);
+                    }}
+                    disabled={starting}
+                  >
                     {starting ? 'Starting…' : 'Start workout'}
                   </Button>
                 </div>
@@ -296,6 +310,16 @@ export default function PlansPage() {
           activePlanId={activePlanId}
           onClose={toggleModal}
           onPlanChange={loadAll}
+        />
+      )}
+
+      {selectedTemplate && (
+        <FullTemplateModal
+          template={selectedTemplate}
+          starting={starting}
+          onClose={() => setSelectedTemplate(null)}
+          onStart={startFromTemplate}
+          onDelete={deleteTemplate}
         />
       )}
     </div>

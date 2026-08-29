@@ -79,11 +79,15 @@ class SessionService {
                 }
             }
             
-            const session = await this.db.SessionLog.create(sessionData)
+            // Create the session and its prescribed logs atomically — if any log insert
+            // fails, the session row is rolled back so we never leave an orphaned
+            // "in-progress" session (which would then block starting future sessions).
+            return await this.db.sequelize.transaction(async (t) => {
+            const session = await this.db.SessionLog.create(sessionData, { transaction: t })
 
             if(sessionTemplateId && sessionTemplate?.ExerciseTemplates) {
             const exerciseLogPromises = [];
-            
+
             sessionTemplate.ExerciseTemplates.forEach(exerciseTemplate => {
                 const isCardio = exerciseTemplate.Exercise?.type === 'cardio';
 
@@ -102,20 +106,27 @@ class SessionService {
                           }));
 
                 prescribedSets.forEach(set => {
+                    // The prescription rides along as *targets* (shown as placeholders while
+                    // logging); the actual reps/weight/time/distance start empty. RPE/RIR are
+                    // pre-filled as the target and adjusted to actuals during the workout.
                     exerciseLogPromises.push(
                         this.db.ExerciseLog.create({
                             exerciseId: exerciseTemplate.exerciseId,
                             setId: 1, // Default to normal set type (1 = normal)
                             orderIndex: exerciseTemplate.orderIndex,
-                            reps: isCardio ? null : (set.reps ?? null),
-                            weight: isCardio ? null : (set.weight ?? 0),
-                            durationSeconds: isCardio ? (set.durationSeconds ?? null) : null,
-                            distance: isCardio ? (set.distance ?? null) : null,
+                            reps: null,
+                            weight: null,
+                            durationSeconds: null,
+                            distance: null,
+                            targetReps: isCardio ? null : (set.reps != null && set.reps !== '' ? String(set.reps) : null),
+                            targetWeight: isCardio ? null : (set.weight ?? null),
+                            targetDurationSeconds: isCardio ? (set.durationSeconds ?? null) : null,
+                            targetDistance: isCardio ? (set.distance ?? null) : null,
                             notes: set.notes ?? '',
                             rpe: set.rpe ?? null,
                             rir: isCardio ? null : (set.rir ?? null),
                             sessionLogId: session.id
-                        })
+                        }, { transaction: t })
                     );
                 });
             });
@@ -123,7 +134,8 @@ class SessionService {
             await Promise.all(exerciseLogPromises);
         }
 
-            return session 
+            return session
+            })
         } catch (error) {
             throw error
         }

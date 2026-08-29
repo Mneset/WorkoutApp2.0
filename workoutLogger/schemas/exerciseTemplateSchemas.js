@@ -3,7 +3,8 @@ const { z } = require('zod');
 // One prescribed set within an exercise template: strength uses reps/weight/rir,
 // cardio uses durationSeconds/distance; rpe applies to both. All optional/nullable.
 const setTemplateSchema = z.object({
-    reps: z.coerce.number().int().nonnegative().nullable().optional(),
+    // Reps may be a single number or a range string like "8-12".
+    reps: z.union([z.string(), z.number()]).nullable().optional(),
     weight: z.coerce.number().nonnegative().nullable().optional(),
     durationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     distance: z.coerce.number().nonnegative().nullable().optional(),

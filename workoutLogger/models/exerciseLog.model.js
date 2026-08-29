@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true
         },
         weight: {
-            type: DataTypes.INTEGER,
+            type: DataTypes.FLOAT,
             allowNull: true
         },
         // Per-exercise display order within the session (shared across an exercise's sets).
@@ -50,6 +50,28 @@ module.exports = (sequelize, DataTypes) => {
         rir: {
             type: DataTypes.INTEGER,
             allowNull: true
+        },
+        // Prescription carried from a plan/template, shown as placeholders while logging.
+        // target_reps is a string so it can hold a range ("8-12") or a single number.
+        targetReps: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            field: 'target_reps'
+        },
+        targetWeight: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            field: 'target_weight'
+        },
+        targetDurationSeconds: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            field: 'target_duration_seconds'
+        },
+        targetDistance: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            field: 'target_distance'
         },
         sessionLogId: {
             type: DataTypes.INTEGER,
