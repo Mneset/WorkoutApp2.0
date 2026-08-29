@@ -4,7 +4,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-    const { getAccessTokenSilently, user, isAuthenticated, loginWithRedirect, logout } = useAuth0();
+    const { getAccessTokenSilently, user, isAuthenticated, isLoading, loginWithRedirect, logout } = useAuth0();
 
     const getToken = useCallback(async () => {
         return await getAccessTokenSilently({
@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
     const value = {
         user,
         isAuthenticated,
+        isLoading,
         loginWithRedirect,
         logout,
         getToken,
