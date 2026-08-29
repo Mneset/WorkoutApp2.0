@@ -527,13 +527,14 @@ export default function CreatePlanPage() {
                     ) : (
                       <input
                         type="text"
-                        inputMode="numeric"
                         placeholder="e.g. 8-12"
                         className={`${inputClass} w-full px-1.5 text-center`}
                         value={set.reps}
-                        onChange={(e) =>
-                          updateSetField(st.tempId, ex.tempId, sIdx, 'reps', e.target.value)
-                        }
+                        onChange={(e) => {
+                          // A single number or a range — digits and "-" only.
+                          if (!/^[0-9-]*$/.test(e.target.value)) return;
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'reps', e.target.value);
+                        }}
                       />
                     )}
                     {isCardio ? (

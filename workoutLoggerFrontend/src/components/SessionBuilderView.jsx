@@ -347,11 +347,15 @@ export default function SessionBuilderView({
                                     ) : templateMode ? (
                                       <input
                                         type="text"
-                                        inputMode="numeric"
                                         placeholder="e.g. 8-12"
                                         className={numInputClass}
                                         value={log.reps ?? ''}
-                                        onChange={(e) => onUpdateLog(log, { reps: e.target.value })}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          // A single number or a range — digits and "-" only.
+                                          if (!/^[0-9-]*$/.test(v)) return;
+                                          onUpdateLog(log, { reps: v });
+                                        }}
                                       />
                                     ) : (
                                       <input
