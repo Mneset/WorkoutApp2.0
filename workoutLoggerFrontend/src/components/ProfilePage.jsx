@@ -9,7 +9,7 @@ const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
 // Defaults when a user has no saved preferences yet.
-const DEFAULT_PREFS = { showRpe: true, showRir: true, showNotes: true };
+const DEFAULT_PREFS = { showRpe: true, showRir: true, showNotes: true, basicExercisesOnly: true };
 
 const TOGGLES = [
   { key: 'showRpe', label: 'RPE', hint: 'Rate of perceived exertion column' },
@@ -130,6 +130,25 @@ export default function ProfilePage() {
           <span className="mb-1 block text-xs font-semibold text-muted">Email</span>
           <input className={`${inputClass} cursor-not-allowed text-muted`} value={email} disabled readOnly />
         </label>
+      </Card>
+
+      {/* Exercise library */}
+      <Card className="mt-4 p-5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+          Exercise library
+        </span>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold text-ink">Basic exercises only</div>
+            <div className="text-xs text-muted">
+              Show a curated set of common gym staples instead of the full ~870-exercise list.
+            </div>
+          </div>
+          <Toggle
+            on={prefs.basicExercisesOnly !== false}
+            onChange={(v) => setPref('basicExercisesOnly', v)}
+          />
+        </div>
       </Card>
 
       {/* Logging preferences */}

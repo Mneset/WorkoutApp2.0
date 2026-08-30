@@ -37,6 +37,11 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 
 ## Backlog / ideas
 
+- [x] **Trim the exercise list (Basic vs All)** — curated `data/basic-exercises.json` (~80
+  gym staples) + `is_basic` on `exercises` (migration `039`, cardio counts as basic). A
+  profile toggle **"Basic exercises only"** (in `preferences`, default on) trims the picker's
+  main A–Z list to staples; favorites are always shown; degrades gracefully pre-migration.
+
 - [x] **Profile section** — `/profile` page: edit display name (email read-only), toggle
   which optional columns show while logging (RPE / RIR / Notes), and **Log out** (moved off
   the navbar; avatar + a bottom-bar Profile tab link here). Prefs stored in `users.preferences`
@@ -65,6 +70,11 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   groups by first letter (non-letters under "#") with a sticky letter header per group;
   the header/search are now fixed and only the list scrolls. (A future Favorites section
   would sit above the A–Z list.)
+- [x] **Start-workout: scratch vs template prompt** — New Session now resumes an
+  in-progress session if there is one, otherwise shows a choice screen: **Start from
+  scratch** (blank) or start from one of your **templates** (list of standalone templates).
+  Side benefit: a blank session is only created on explicit "from scratch", so visiting New
+  Session no longer auto-creates orphan blanks.
 - **Add custom exercise** — let the user create their own exercise (name + type +
   optional target muscles/equipment) from the picker when what they want isn't in the
   library, and have it appear in the list. Needs a create-exercise route/service and a

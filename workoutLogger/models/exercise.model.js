@@ -25,6 +25,13 @@ module.exports = (sequelize, DataTypes) => {
         images: {
             type: DataTypes.JSON,
             allowNull: true
+        },
+        // Part of the curated "basic" subset (common staples), for the profile filter.
+        isBasic: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+            field: 'is_basic'
         }
     }, {
         tableName: 'exercises' 

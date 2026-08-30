@@ -19,6 +19,8 @@ const LIB = require('./data/exercise-library.json');
 const PRIMARY = require('./data/exercise-primary-muscles.json');
 // exercise name -> { instructions[], images[] } for the detail view.
 const DETAILS = require('./data/exercise-details.json');
+// Curated "basic" staples (names); cardio is also treated as basic.
+const BASIC = new Set(require('./data/basic-exercises.json'));
 
 const chunk = (arr, size) => {
     const out = [];
@@ -57,6 +59,7 @@ module.exports = {
                     type: e.type,
                     instructions: JSON.stringify(d.instructions || []),
                     images: JSON.stringify(d.images || []),
+                    is_basic: BASIC.has(e.name) || e.type === 'cardio',
                 };
             })
         );

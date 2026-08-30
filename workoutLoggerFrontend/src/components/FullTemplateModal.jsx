@@ -103,10 +103,16 @@ export default function FullTemplateModal({ template, onClose, onStart, onDelete
         </div>
 
         <div className="mt-5 flex items-center justify-between gap-3 pt-1">
-          <Button variant="danger" onClick={() => onDelete(template.id)}>
-            Delete
-          </Button>
-          <Button onClick={() => onStart(template.id)} disabled={starting}>
+          {onDelete && (
+            <Button variant="danger" onClick={() => onDelete(template.id)}>
+              Delete
+            </Button>
+          )}
+          <Button
+            onClick={() => onStart(template.id)}
+            disabled={starting}
+            className={onDelete ? '' : 'w-full'}
+          >
             {starting ? 'Starting…' : 'Start workout'}
           </Button>
         </div>

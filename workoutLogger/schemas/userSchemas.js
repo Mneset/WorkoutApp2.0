@@ -13,6 +13,7 @@ const updateProfileSchema = z.object({
         showRpe: z.boolean().optional(),
         showRir: z.boolean().optional(),
         showNotes: z.boolean().optional(),
+        basicExercisesOnly: z.boolean().optional(),
     }).partial().optional(),
 }).refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',

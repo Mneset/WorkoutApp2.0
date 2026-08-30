@@ -115,6 +115,24 @@ export default function PlansPage() {
     }
   };
 
+  const deletePlan = async (planId) => {
+    if (planId === activePlanId) {
+      alert('This plan is active — quit it before deleting.');
+      return;
+    }
+    if (!window.confirm('Delete this plan? This cannot be undone.')) return;
+    try {
+      const accessToken = await getToken();
+      await api.delete(`/workout-plan/${planId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setWorkoutPlans((prev) => prev.filter((p) => p.id !== planId));
+    } catch (err) {
+      console.error('Error deleting plan:', err);
+      alert('Failed to delete plan.');
+    }
+  };
+
   const deleteTemplate = async (templateId) => {
     if (!window.confirm('Delete this template? This cannot be undone.')) return;
     try {
@@ -227,15 +245,25 @@ export default function PlansPage() {
                         {sessionCount} sessions · {plan.durationWeeks} weeks
                       </div>
                     </div>
-                    {isActive ? (
-                      <span className="rounded-full bg-clay-tint px-2.5 py-1 text-xs font-semibold text-clay">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-[#efece5] px-2.5 py-1 text-xs font-semibold text-muted">
-                        Saved
-                      </span>
-                    )}
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      {isActive && (
+                        <span className="rounded-full bg-clay-tint px-2.5 py-1 text-xs font-semibold text-clay">
+                          Active
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Delete plan"
+                        title={isActive ? 'Quit the plan before deleting' : 'Delete plan'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deletePlan(plan.id);
+                        }}
+                        className="grid h-8 w-8 place-items-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M10 11v6M14 11v6" /></svg>
+                      </button>
+                    </div>
                   </div>
                   <p className="mt-3 text-sm text-muted">{plan.description}</p>
                 </Card>
@@ -269,11 +297,25 @@ export default function PlansPage() {
                 className="flex cursor-pointer flex-col p-5"
                 onClick={() => setSelectedTemplate(tpl)}
               >
-                <div className="min-w-0">
-                  <div className="truncate font-[650]">{tpl.name}</div>
-                  <div className="mt-1 font-mono text-xs text-muted">
-                    {exCount} {exCount === 1 ? 'exercise' : 'exercises'}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-[650]">{tpl.name}</div>
+                    <div className="mt-1 font-mono text-xs text-muted">
+                      {exCount} {exCount === 1 ? 'exercise' : 'exercises'}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    aria-label="Delete template"
+                    title="Delete template"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTemplate(tpl.id);
+                    }}
+                    className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M10 11v6M14 11v6" /></svg>
+                  </button>
                 </div>
                 {tpl.ExerciseTemplates && tpl.ExerciseTemplates.length > 0 && (
                   <ul className="mt-3 space-y-0.5 text-sm text-muted">
@@ -325,7 +367,6 @@ export default function PlansPage() {
           starting={starting}
           onClose={() => setSelectedTemplate(null)}
           onStart={startFromTemplate}
-          onDelete={deleteTemplate}
         />
       )}
     </div>

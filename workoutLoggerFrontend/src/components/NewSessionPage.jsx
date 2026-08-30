@@ -7,6 +7,7 @@ import api from '../api';
 import Card from './Card';
 import Button from './Button';
 import SessionBuilderView, { Eyebrow } from './SessionBuilderView';
+import FullTemplateModal from './FullTemplateModal';
 import { partOfDay } from '../timeOfDay';
 import { parseDuration, formatDuration } from '../duration';
 
@@ -31,82 +32,135 @@ function defaultSessionName(d = new Date()) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Start-session view (logic preserved from startSessionComponent.js)         */
+/* Start-session view — resume an in-progress session, or choose how to begin:  */
+/* from scratch, or from one of the user's templates.                           */
 /* -------------------------------------------------------------------------- */
 function StartSession() {
   const { getToken, user } = useAuth();
   const { handleSessionStarted } = useSession();
-  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true); // still looking for an in-progress session
+  const [templates, setTemplates] = useState([]);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
   const initRef = useRef(false);
 
-  const startNew = async () => {
-    setLoading(true);
+  const authHeaders = async () => ({ Authorization: `Bearer ${await getToken()}` });
+
+  const start = async (sessionTemplateId) => {
+    setStarting(true);
     setError(null);
     try {
-      const accessToken = await getToken();
-      const response = await api.post(
-        '/session',
-        { userId: user.sub },
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
+      const headers = await authHeaders();
+      const body = { userId: user.sub };
+      if (sessionTemplateId) body.sessionTemplateId = sessionTemplateId;
+      const res = await api.post('/session', body, { headers });
       // Flipping the session context unmounts this view and mounts the builder.
-      handleSessionStarted(response.data.data.result.sessionLogId);
+      handleSessionStarted(res.data.data.result.sessionLogId);
     } catch (err) {
-      setError('Failed to start session. Please try again.');
       console.error('Error starting session:', err);
-      setLoading(false);
+      setError('Failed to start session. Please try again.');
+      setStarting(false);
     }
   };
 
-  // On open: resume the in-progress session if there is one, otherwise create a new
-  // one — either way drop straight into the builder, so New Session behaves the same
-  // whether or not the app still had the session in memory.
   useEffect(() => {
     if (initRef.current) return; // run once (guards against StrictMode double-invoke)
     initRef.current = true;
     const init = async () => {
       try {
-        const accessToken = await getToken();
-        const res = await api.get('/session', {
-          params: { userId: user.sub },
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const headers = await authHeaders();
+        const res = await api.get('/session', { params: { userId: user.sub }, headers });
         const ip = (res.data.data.result || []).find((s) => !s.sessionDateEnd) || null;
         if (ip) {
           handleSessionStarted(ip.id); // resume straight into it
-        } else {
-          await startNew();
+          return;
         }
+        // No session in progress → show the choice. Load templates to offer.
+        try {
+          const t = await api.get('/session-template/standalone', { params: { userId: user.sub }, headers });
+          setTemplates(t.data.data.result || []);
+        } catch {
+          setTemplates([]);
+        }
+        setChecking(false);
       } catch (err) {
         console.error('Error checking for in-progress session:', err);
-        setError('Failed to start session. Please try again.');
+        setError('Failed to load. Please try again.');
+        setChecking(false);
       }
     };
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) {
+  if (checking) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <Card className="p-6">
-          <p className="text-sm text-danger">{error}</p>
-          <div className="mt-4">
-            <Button onClick={startNew} disabled={loading}>
-              {loading ? 'Starting…' : 'Try again'}
-            </Button>
-          </div>
-        </Card>
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <div className="py-16 text-center text-sm text-muted">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="py-16 text-center text-sm text-muted">Loading…</div>
+    <div className="mx-auto max-w-2xl px-6 py-10">
+      <Eyebrow>NEW WORKOUT</Eyebrow>
+      <h1 className="mt-1 text-2xl">Start a workout</h1>
+      <p className="mt-1 text-muted">Begin from scratch, or start from one of your templates.</p>
+
+      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+
+      <button
+        onClick={() => start()}
+        disabled={starting}
+        className="mt-6 flex w-full items-center gap-3 rounded-2xl border border-clay bg-clay px-5 py-4 text-left text-white transition-colors hover:bg-clay-hover disabled:opacity-60"
+      >
+        <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-white/20">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        </span>
+        <span>
+          <span className="block font-semibold">Start from scratch</span>
+          <span className="block text-sm text-white/80">An empty session — add exercises as you go.</span>
+        </span>
+      </button>
+
+      <div className="mt-7">
+        <div className="mb-2 flex items-center justify-between">
+          <Eyebrow>Or start from a template</Eyebrow>
+        </div>
+        {templates.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-line-strong px-4 py-6 text-center text-sm text-muted">
+            No templates yet — create one under Plans → Templates.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {templates.map((tpl) => {
+              const count = tpl.ExerciseTemplates ? tpl.ExerciseTemplates.length : 0;
+              return (
+                <button
+                  key={tpl.id}
+                  onClick={() => setPreviewTemplate(tpl)}
+                  className="rounded-xl border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-clay hover:bg-clay-tint"
+                >
+                  <div className="truncate font-[650] text-ink">{tpl.name}</div>
+                  <div className="mt-0.5 font-mono text-xs text-muted">
+                    {count} {count === 1 ? 'exercise' : 'exercises'}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {previewTemplate && (
+        <FullTemplateModal
+          template={previewTemplate}
+          starting={starting}
+          onClose={() => setPreviewTemplate(null)}
+          onStart={(id) => start(id)}
+        />
+      )}
     </div>
   );
 }

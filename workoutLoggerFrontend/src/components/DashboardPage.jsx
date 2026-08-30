@@ -345,9 +345,7 @@ export default function DashboardPage() {
             <Button onClick={resumeInProgress}>Resume session</Button>
           </div>
         ) : (
-          <Button onClick={() => startSession()} disabled={starting}>
-            {starting ? 'Starting…' : 'Start a session'}
-          </Button>
+          <Button onClick={() => navigate('/new-session')}>Start a session</Button>
         )}
       </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../context/UserContext';
 import api from '../api';
 import Card from './Card';
 import ExerciseDetail, { IMG_CDN } from './ExerciseDetail';
@@ -28,6 +29,10 @@ function StarIcon({ filled }) {
 // `type` scopes the list: 'strength' (the default) or 'cardio' — each has its own picker.
 function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'strength' }) {
   const { getToken } = useAuth();
+  const { profile } = useUserProfile();
+  // Basic-only hides the very specific variations (kept as a graceful default until the
+  // backend ships the is_basic flag — undefined is treated as basic so nothing vanishes).
+  const basicOnly = profile?.preferences?.basicExercisesOnly !== false;
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [selectedMuscle, setSelectedMuscle] = useState('');
@@ -124,8 +129,11 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
     return matchesName && matchesMuscle;
   });
 
+  // Favorites are always shown (you chose them); the basic filter only trims the main list.
   const favoritesList = filteredExercises.filter((ex) => favoriteIds.has(ex.id));
-  const nonFavorites = filteredExercises.filter((ex) => !favoriteIds.has(ex.id));
+  const nonFavorites = filteredExercises.filter(
+    (ex) => !favoriteIds.has(ex.id) && (!basicOnly || ex.isBasic !== false)
+  );
 
   // Target muscles present in this picker's exercises (strength only uses the filter).
   const allTargetMuscles = ofType.reduce((muscles, ex) => {
@@ -339,7 +347,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
               No favorites yet — tap the ☆ on an exercise to add one.
             </div>
           )}
-          {view === 'all' && filteredExercises.length === 0 && (
+          {view === 'all' && favoritesList.length === 0 && nonFavorites.length === 0 && (
             <div className="py-8 text-center text-sm text-muted">No exercises found.</div>
           )}
         </div>
