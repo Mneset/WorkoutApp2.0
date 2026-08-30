@@ -15,6 +15,8 @@
 
 const { QueryTypes } = require('sequelize');
 const LIB = require('./data/exercise-library.json');
+// exercise name -> [primary target-muscle names] (for the is_primary flag on the join).
+const PRIMARY = require('./data/exercise-primary-muscles.json');
 
 const chunk = (arr, size) => {
     const out = [];
@@ -58,7 +60,12 @@ module.exports = {
         for (const e of LIB.exercises) {
             const eid = exIds[e.name];
             if (!eid) continue;
-            (e.muscles || []).forEach((m) => muscleIds[m] && tm.push({ exercise_id: eid, targetMuscle_id: muscleIds[m] }));
+            const primary = new Set(PRIMARY[e.name] || []);
+            (e.muscles || []).forEach(
+                (m) =>
+                    muscleIds[m] &&
+                    tm.push({ exercise_id: eid, targetMuscle_id: muscleIds[m], is_primary: primary.has(m) })
+            );
             (e.categories || []).forEach((c) => catIds[c] && ec.push({ exercise_id: eid, category_id: catIds[c] }));
             (e.equipment || []).forEach((q) => equipIds[q] && ee.push({ exercise_id: eid, equipment_id: equipIds[q] }));
         }

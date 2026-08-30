@@ -8,7 +8,7 @@ class ExerciseService {
                 include: [
             {
                 model: this.db.TargetMuscle,
-                through: { attributes: [] }
+                through: { attributes: ['isPrimary'] }
             }
         ]
         })

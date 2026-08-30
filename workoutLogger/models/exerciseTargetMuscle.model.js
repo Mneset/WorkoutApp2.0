@@ -11,6 +11,12 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             field: 'targetMuscle_id',
             primaryKey: true
+        },
+        isPrimary: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+            field: 'is_primary'
         }
     }, {
         tableName: 'exercisetargetmuscles',

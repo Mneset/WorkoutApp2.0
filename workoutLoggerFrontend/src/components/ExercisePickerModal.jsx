@@ -87,10 +87,18 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
 
   const filteredExercises = ofType.filter((ex) => {
     const matchesName = ex.name.toLowerCase().includes(search.toLowerCase());
+    // Match the PRIMARY mover only, so "Chest" shows exercises chest actually drives —
+    // not ones where it's just a secondary mover.
     const matchesMuscle =
       selectedMuscle === '' ||
       (ex.TargetMuscles &&
-        ex.TargetMuscles.some((muscle) => muscle.name.toLowerCase() === selectedMuscle.toLowerCase()));
+        ex.TargetMuscles.some(
+          (muscle) =>
+            muscle.name.toLowerCase() === selectedMuscle.toLowerCase() &&
+            // Primary-only when the flag is present; if the backend hasn't shipped it yet,
+            // fall back to matching any involvement so the filter never returns nothing.
+            (muscle.ExerciseTargetMuscle?.isPrimary ?? true)
+        ));
     return matchesName && matchesMuscle;
   });
 
@@ -150,8 +158,22 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
         <div onClick={() => handleSelect(ex)} className="min-w-0 flex-1 cursor-pointer">
           <div className="text-sm font-medium">{ex.name}</div>
           {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
-            <div className="mt-0.5 text-xs text-muted">
-              {ex.TargetMuscles.map((m) => m.name).join(', ')}
+            <div className="mt-0.5 text-xs">
+              {[...ex.TargetMuscles]
+                .sort(
+                  (a, b) =>
+                    (b.ExerciseTargetMuscle?.isPrimary ? 1 : 0) -
+                    (a.ExerciseTargetMuscle?.isPrimary ? 1 : 0)
+                )
+                .map((m, i) => (
+                  <span
+                    key={m.id}
+                    className={m.ExerciseTargetMuscle?.isPrimary ? 'font-semibold text-muted' : 'text-muted/60'}
+                  >
+                    {i > 0 ? ', ' : ''}
+                    {m.name}
+                  </span>
+                ))}
             </div>
           )}
         </div>

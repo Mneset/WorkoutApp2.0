@@ -71,9 +71,9 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   library, and have it appear in the list. Needs a create-exercise route/service and a
   "+ Create new exercise" affordance in `ExercisePickerModal` (and to mark user-created
   ones, likely a `created_by`/`user_id` column on `exercises`).
-- **Filter/sort by primary movers** — the seed merged primary + secondary muscles into one
-  `TargetMuscles` list, so the muscle filter currently matches any exercise where the muscle
-  appears at all (even as a secondary mover). To filter/sort by the *primary* mover, preserve
-  the distinction: add an `is_primary` flag to the `exercisetargetmuscles` join, re-seed from
-  the dataset's `primaryMuscles`/`secondaryMuscles`, include it in `getAllExercises`, and have
-  the picker filter/sort on primary. (Backend join migration + seeder + `ExercisePickerModal.jsx`.)
+- [x] **Filter/sort by primary movers** — `is_primary` flag on the `exercisetargetmuscles`
+  join (migration `037`), backfilled from the free-exercise-db `primaryMuscles` split
+  (bundled `data/exercise-primary-muscles.json`; seeder also sets it for fresh installs).
+  `getAllExercises` exposes it via the through attributes; the picker's muscle filter now
+  matches the **primary** mover, and each row lists primaries first (secondaries dimmed).
+  Frontend degrades gracefully if the flag isn't present yet.
