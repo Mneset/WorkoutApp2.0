@@ -35,6 +35,11 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             defaultValue: 1,
             field: 'current_week'
+        },
+        // Free-form user preferences, e.g. { showRpe, showRir, showNotes }.
+        preferences: {
+            type: DataTypes.JSON,
+            allowNull: true
         }
     }, {
         tableName: 'users',

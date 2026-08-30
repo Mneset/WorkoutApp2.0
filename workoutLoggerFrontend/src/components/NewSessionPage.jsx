@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
+import { useUserProfile } from '../context/UserContext';
 import api from '../api';
 import Card from './Card';
 import Button from './Button';
@@ -123,6 +124,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const { profile } = useUserProfile();
+  const prefs = profile?.preferences || null; // logging field preferences
 
   // Presentational count-up timer.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -531,6 +534,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       onDeleteExercise={deleteExercise}
       onReorder={applyExerciseOrder}
       onSetOneRepMax={handleSetOneRepMax}
+      prefs={prefs}
       footer={
         <>
           {editMode ? (

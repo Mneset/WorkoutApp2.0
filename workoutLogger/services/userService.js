@@ -21,6 +21,16 @@ class UserService {
        })
     }
 
+    // Update editable profile fields (display name + preferences).
+    async updateProfile(userId, data) {
+        const user = await this.db.User.findByPk(userId);
+        if (!user) return null;
+        if (data.username !== undefined) user.username = data.username;
+        if (data.preferences !== undefined) user.preferences = data.preferences;
+        await user.save();
+        return user;
+    }
+
     async getCurrentPlanStatus(userId) {
        const user = await this.db.User.findOne({
         where: {id: userId},

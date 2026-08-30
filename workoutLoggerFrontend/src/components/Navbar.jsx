@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../context/UserContext';
 
 const linkClass = ({ isActive }) =>
   `px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -55,6 +56,12 @@ const icons = {
       <path d="M21 12H9" />
     </>
   ),
+  profile: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </>
+  ),
 };
 
 // One bottom-bar tab (mobile).
@@ -72,11 +79,11 @@ function BottomTab({ to, end, label, glyph }) {
 }
 
 export default function Navbar() {
-  const { user, loginWithRedirect, logout, isAuthenticated } = useAuth();
+  const { user, loginWithRedirect, isAuthenticated } = useAuth();
+  const { profile } = useUserProfile();
+  const displayName = profile?.username || user?.nickname || user?.name || 'Profile';
 
-  const doLogout = () => logout({ logoutParams: { returnTo: window.location.origin } });
-
-  const initials = (user?.nickname || user?.name || user?.email || '?')
+  const initials = (profile?.username || user?.nickname || user?.name || user?.email || '?')
     .trim()
     .slice(0, 2)
     .toUpperCase();
@@ -107,19 +114,19 @@ export default function Navbar() {
             <NavLink to="/workout-plan" className={linkClass}>Plans</NavLink>
             <div className="mx-2 h-6 w-px bg-line" />
             {isAuthenticated ? (
-              <div className="flex items-center gap-2.5">
+              <Link to="/profile" className="flex items-center gap-2.5 rounded-full px-1 py-0.5 hover:bg-surface-2" title="Profile">
                 {avatar}
-                <button className="text-sm text-muted hover:text-ink" onClick={doLogout}>Log out</button>
-              </div>
+                <span className="text-sm text-muted">{displayName}</span>
+              </Link>
             ) : (
               <button className="text-sm text-muted hover:text-ink" onClick={() => loginWithRedirect()}>Log in</button>
             )}
           </div>
 
-          {/* Mobile: avatar only (nav + logout live in the bottom bar) */}
+          {/* Mobile: avatar links to profile (nav lives in the bottom bar) */}
           <div className="md:hidden">
             {isAuthenticated ? (
-              avatar
+              <Link to="/profile" aria-label="Profile">{avatar}</Link>
             ) : (
               <button className="text-sm text-muted hover:text-ink" onClick={() => loginWithRedirect()}>Log in</button>
             )}
@@ -154,11 +161,7 @@ export default function Navbar() {
             </NavLink>
 
             <BottomTab to="/workout-plan" label="Plans" glyph={icons.plans} />
-
-            <button className="flex flex-1 flex-col items-center gap-0.5 py-1.5 text-muted" onClick={doLogout}>
-              <Icon>{icons.logout}</Icon>
-              <span className="text-[10px] font-medium">Log out</span>
-            </button>
+            <BottomTab to="/profile" label="Profile" glyph={icons.profile} />
           </div>
         </nav>
       )}

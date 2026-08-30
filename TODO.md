@@ -37,9 +37,10 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 
 ## Backlog / ideas
 
-- **Profile section** — a profile screen to edit basic info, with toggles for which fields
-  are shown while logging (include RIR, RPE, etc.). Move **Log out** into the profile
-  instead of the navbar.
+- [x] **Profile section** — `/profile` page: edit display name (email read-only), toggle
+  which optional columns show while logging (RPE / RIR / Notes), and **Log out** (moved off
+  the navbar; avatar + a bottom-bar Profile tab link here). Prefs stored in `users.preferences`
+  JSON (migration `035`); the session builder reads them to hide columns via a computed grid.
 - [x] **Weight as % of 1RM in plans/templates** — per-exercise **kg / % 1RM** toggle in the
   plan & template builders (weight input stays decimal; `weight_unit` on `exercisetemplate`,
   migration `032`). Manual per-exercise **1RMs** in a new `/one-rep-max` screen (table

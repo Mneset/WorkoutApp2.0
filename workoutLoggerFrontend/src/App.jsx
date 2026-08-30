@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { UserProvider } from './context/UserContext';
 import Navbar from './components/Navbar';
 import DashboardPage from './components/DashboardPage';
 import NewSessionPage from './components/NewSessionPage';
@@ -8,6 +9,7 @@ import PlansPage from './components/PlansPage';
 import CreatePlanPage from './components/CreatePlanPage';
 import CreateTemplatePage from './components/CreateTemplatePage';
 import OneRepMaxPage from './components/OneRepMaxPage';
+import ProfilePage from './components/ProfilePage';
 import LandingPage from './components/LandingPage';
 import AddToHomeScreenPrompt from './components/AddToHomeScreenPrompt';
 
@@ -30,6 +32,7 @@ export default function App() {
   }
 
   return (
+    <UserProvider>
     <Router>
       <Navbar />
       <main className="pb-24 md:pb-0">
@@ -41,9 +44,11 @@ export default function App() {
           <Route path="/workout-plan/create-plan" element={<CreatePlanPage />} />
           <Route path="/workout-plan/create-template" element={<CreateTemplatePage />} />
           <Route path="/one-rep-max" element={<OneRepMaxPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </main>
       <AddToHomeScreenPrompt />
     </Router>
+    </UserProvider>
   );
 }

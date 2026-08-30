@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
+import { useUserProfile } from '../context/UserContext';
 import api from '../api';
 import Card from './Card';
 import AccentCard from './AccentCard';
@@ -145,6 +146,7 @@ const Eyebrow = ({ children }) => (
 
 export default function DashboardPage() {
   const { user, getToken, isAuthenticated } = useAuth();
+  const { profile } = useUserProfile();
   const { handleSessionStarted, handleSessionEnded } = useSession();
   const navigate = useNavigate();
 
@@ -333,7 +335,7 @@ export default function DashboardPage() {
         <div>
           <Eyebrow>{dateLabel}</Eyebrow>
           <h1 className="mt-2 text-3xl">
-            {greetingFor(now.getHours())}, <span className="text-clay">{user?.nickname || 'there'}</span>
+            {greetingFor(now.getHours())}, <span className="text-clay">{profile?.username || user?.nickname || 'there'}</span>
           </h1>
           <p className="mt-1 text-muted">{subtitle}</p>
         </div>

@@ -7,12 +7,25 @@ const UserService = require('../services/userService');
 const userService = new UserService(db);
 const checkForUser = require('../utils/userCreator');
 const { validate } = require('../middleware/validate');
-const { startPlanSchema } = require('../schemas/userSchemas');
+const { startPlanSchema, updateProfileSchema } = require('../schemas/userSchemas');
 const { success, error } = require('../utils/response');
 
 if (process.env.NODE_ENV !== 'test') {
     router.use(checkForUser);
 }
+
+// Update the signed-in user's editable profile (display name, preferences).
+router.put('/profile', validate(updateProfileSchema), async (req, res) => {
+    const userId = req.auth?.payload.sub;
+    try {
+        const updated = await userService.updateProfile(userId, req.body);
+        if (!updated) return error(res, 'User not found', 404);
+        return success(res, updated);
+    } catch (err) {
+        console.error('Error updating profile:', err);
+        return error(res, 'Failed to update profile');
+    }
+});
 
 router.get('/', async (req, res) => {
     const userId = req.auth?.payload.sub;

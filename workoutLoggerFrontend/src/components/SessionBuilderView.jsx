@@ -69,7 +69,28 @@ export default function SessionBuilderView({
   // Template-building mode: reps is a free-text field (allows a range like "8-12") and
   // fields show generic placeholders instead of a prescribed target.
   templateMode = false,
+  // Which optional columns show while logging (user preference).
+  prefs,
 }) {
+  // The toggle only declutters *freeform* sessions. A session started from a plan/template
+  // (i.e. any set carries a prescribed target) shows the full logging interface, so you can
+  // record/follow the program regardless of your default toggles.
+  const hasValue = (key) => Array.isArray(logs) && logs.some((l) => l[key] != null && l[key] !== '');
+  const fromProgram =
+    !templateMode &&
+    Array.isArray(logs) &&
+    logs.some(
+      (l) =>
+        (l.targetReps != null && l.targetReps !== '') ||
+        (l.targetWeight != null && l.targetWeight !== '') ||
+        l.targetWeightPct != null ||
+        l.targetDurationSeconds != null ||
+        l.targetDistance != null
+    );
+  const colRpe = prefs?.showRpe !== false || fromProgram || hasValue('rpe');
+  const colRir = prefs?.showRir !== false || fromProgram || hasValue('rir');
+  const colNotes = prefs?.showNotes !== false || fromProgram || hasValue('notes');
+
   // A prescribed target → placeholder text (or a dash when there's none).
   const ph = (v) => (v != null && v !== '' ? String(v) : '–');
   const [editingName, setEditingName] = useState(false);
@@ -80,12 +101,22 @@ export default function SessionBuilderView({
   const [coarse, setCoarse] = useState(
     () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
   );
+  // Narrow (phone-width) layout: mobile stacks Notes onto its own full-width line.
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(max-width: 639px)').matches
+  );
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(pointer: coarse)');
-    const on = (e) => setCoarse(e.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
+    const mqCoarse = window.matchMedia('(pointer: coarse)');
+    const mqNarrow = window.matchMedia('(max-width: 639px)');
+    const onCoarse = (e) => setCoarse(e.matches);
+    const onNarrow = (e) => setNarrow(e.matches);
+    mqCoarse.addEventListener('change', onCoarse);
+    mqNarrow.addEventListener('change', onNarrow);
+    return () => {
+      mqCoarse.removeEventListener('change', onCoarse);
+      mqNarrow.removeEventListener('change', onNarrow);
+    };
   }, []);
 
   const commit = (log) => onCommitLog?.(log);
@@ -233,6 +264,20 @@ export default function SessionBuilderView({
                 const isPct = (exLogs[0]?.weightUnit || 'kg') === 'pct';
                 // Live logging: any set prescribed by % (needs room below for its label).
                 const anyPct = !templateMode && exLogs.some((l) => l.targetWeightPct != null);
+                // Dynamic set-table columns: cardio always shows Pace; strength shows RIR
+                // only if enabled; RPE/Notes follow prefs. Desktop gets a trailing ✕ column;
+                // on mobile Notes drops to its own full-width line and delete is via swipe.
+                const showThird = isCardio || colRir;
+                const desktopDelete = !coarse;
+                const gridCols = [
+                  narrow ? '30px' : '34px',
+                  '1fr',
+                  '1fr',
+                  ...(colRpe ? [narrow ? '1fr' : '72px'] : []),
+                  ...(showThird ? [narrow ? '1fr' : '72px'] : []),
+                  ...(!narrow && colNotes ? ['1.2fr'] : []),
+                  ...(desktopDelete ? ['34px'] : []),
+                ].join(' ');
                 return (
                   <SortableRow key={exerciseName} id={exerciseName}>
                     {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
@@ -322,27 +367,34 @@ export default function SessionBuilderView({
                           {!isSorting && (
                             <>
                               {/* Table header */}
-                              <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
+                              <div
+                                style={{ gridTemplateColumns: gridCols }}
+                                className="grid gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:gap-2"
+                              >
                                 <span>Set</span>
                                 <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
                                 <span className="text-center">{isCardio ? 'Km' : isPct ? '%' : 'Kg'}</span>
-                                <span
-                                  className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
-                                  title="RPE — Rate of Perceived Exertion: how hard the set felt (1 easy → 10 max effort)"
-                                >
-                                  RPE
-                                </span>
-                                {isCardio ? (
-                                  <span className="text-center">Pace</span>
-                                ) : (
+                                {colRpe && (
                                   <span
                                     className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
-                                    title="RIR — Reps In Reserve: how many more good reps you could have done"
+                                    title="RPE — Rate of Perceived Exertion: how hard the set felt (1 easy → 10 max effort)"
                                   >
-                                    RIR
+                                    RPE
                                   </span>
                                 )}
-                                <span className="hidden sm:block">Notes</span>
+                                {showThird &&
+                                  (isCardio ? (
+                                    <span className="text-center">Pace</span>
+                                  ) : (
+                                    <span
+                                      className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
+                                      title="RIR — Reps In Reserve: how many more good reps you could have done"
+                                    >
+                                      RIR
+                                    </span>
+                                  ))}
+                                {!narrow && colNotes && <span>Notes</span>}
+                                {desktopDelete && <span />}
                               </div>
 
                               {/* Set rows */}
@@ -353,11 +405,12 @@ export default function SessionBuilderView({
                                   onDelete={() => onDeleteSet(log)}
                                 >
                                   <div
-                                    className={`grid grid-cols-[30px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2 ${
+                                    style={{ gridTemplateColumns: gridCols }}
+                                    className={`grid items-center gap-1.5 py-3 sm:gap-2 ${
                                       anyPct ? 'pb-7' : ''
                                     } ${index > 0 ? 'border-t border-line' : ''}`}
                                   >
-                                    <div className="row-span-2 flex items-center self-center sm:row-span-1">
+                                    <div className="flex items-center">
                                       <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
                                         {index + 1}
                                       </span>
@@ -472,50 +525,67 @@ export default function SessionBuilderView({
                                           )}
                                       </div>
                                     )}
-                                    <ScoreSelect
-                                      value={log.rpe ?? ''}
-                                      options={RPE_OPTIONS}
-                                      onChange={(v) => {
-                                        onUpdateLog(log, { rpe: v });
-                                        // Dropdowns have no blur — persist the change now so it
-                                        // survives leaving and resuming the session.
-                                        commit({ ...log, rpe: v });
-                                      }}
-                                    />
-                                    {isCardio ? (
-                                      <div className="grid place-items-center text-center text-sm text-muted">
-                                        {pace(parseDuration(log.durationSeconds), log.distance) || '–'}
-                                      </div>
-                                    ) : (
+                                    {colRpe && (
                                       <ScoreSelect
-                                        value={log.rir ?? ''}
-                                        options={RIR_OPTIONS}
+                                        value={log.rpe ?? ''}
+                                        options={RPE_OPTIONS}
                                         onChange={(v) => {
-                                          onUpdateLog(log, { rir: v });
-                                          commit({ ...log, rir: v });
+                                          onUpdateLog(log, { rpe: v });
+                                          // Dropdowns have no blur — persist the change now so it
+                                          // survives leaving and resuming the session.
+                                          commit({ ...log, rpe: v });
                                         }}
                                       />
                                     )}
-                                    <div className="col-span-4 col-start-2 mt-1.5 flex items-center gap-1.5 sm:col-span-1 sm:col-start-auto sm:mt-0">
+                                    {showThird &&
+                                      (isCardio ? (
+                                        <div className="grid place-items-center text-center text-sm text-muted">
+                                          {pace(parseDuration(log.durationSeconds), log.distance) || '–'}
+                                        </div>
+                                      ) : (
+                                        <ScoreSelect
+                                          value={log.rir ?? ''}
+                                          options={RIR_OPTIONS}
+                                          onChange={(v) => {
+                                            onUpdateLog(log, { rir: v });
+                                            commit({ ...log, rir: v });
+                                          }}
+                                        />
+                                      ))}
+                                    {/* Notes — its own column on desktop. */}
+                                    {!narrow && colNotes && (
                                       <input
                                         type="text"
                                         placeholder="Notes"
-                                        className={`${inputClass} min-w-0 flex-1`}
+                                        className={`${inputClass} min-w-0`}
                                         value={log.notes || ''}
                                         onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
                                         onBlur={() => commit(log)}
                                       />
-                                      {!coarse && (
-                                        <button
-                                          type="button"
-                                          title="Delete set"
-                                          onClick={() => onDeleteSet(log)}
-                                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                                        >
-                                          ✕
-                                        </button>
-                                      )}
-                                    </div>
+                                    )}
+                                    {/* Delete — trailing column on desktop; mobile uses swipe. */}
+                                    {desktopDelete && (
+                                      <button
+                                        type="button"
+                                        title="Delete set"
+                                        onClick={() => onDeleteSet(log)}
+                                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+                                    {/* Notes — full-width line on mobile. */}
+                                    {narrow && colNotes && (
+                                      <input
+                                        type="text"
+                                        placeholder="Notes"
+                                        style={{ gridColumn: '1 / -1' }}
+                                        className={`${inputClass} mt-1.5 min-w-0`}
+                                        value={log.notes || ''}
+                                        onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
+                                        onBlur={() => commit(log)}
+                                      />
+                                    )}
                                   </div>
                                 </SwipeToDelete>
                               ))}
