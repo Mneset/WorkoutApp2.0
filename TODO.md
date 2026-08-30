@@ -52,12 +52,11 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   the shared `ExercisePickerModal`: each template day has split **"+ Add exercise" /
   "+ Add cardio"** buttons that open the searchable, type-scoped picker, and rows now show
   the chosen exercise name (read-only) with a Cardio badge.
-- **Exercise descriptions + images** — free-exercise-db includes step-by-step `instructions`
-  (text) and `images` (~2 photos/exercise: start/end position). Add an `instructions` TEXT
-  column + store image paths, re-seed from the dataset (raw file still available), and show
-  them in an exercise detail view / expandable picker row. Load images from jsDelivr CDN
-  (`https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises/<path>`) rather than
-  bundling ~1700 files.
+- [x] **Exercise descriptions + images** — `instructions` + `images` JSON columns on
+  `exercises` (migration `038`), backfilled from the free-exercise-db dataset (bundled
+  `data/exercise-details.json`; seeder sets them too). Lazy-loaded via
+  `GET /exercise-log/details/:id` (kept out of the list query); the picker rows expand to
+  show the start/end photos (loaded from the jsDelivr CDN) + numbered instructions.
 - [x] **Favorite exercises** — star toggle on every row in `ExercisePickerModal` + a
   **★ Favorites** section pinned above the A–Z list (favorites excluded from the letter
   groups to avoid duplication). Backed by `user_favorite_exercises` (migration `036`) with a

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import Card from './Card';
+import ExerciseDetail, { IMG_CDN } from './ExerciseDetail';
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
@@ -32,6 +33,8 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
   const [selectedMuscle, setSelectedMuscle] = useState('');
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [view, setView] = useState('all'); // 'all' | 'favorites'
+  const [expandedId, setExpandedId] = useState(null);
+  const [details, setDetails] = useState({}); // id -> { instructions, images } | 'loading' | 'error'
 
   useEffect(() => {
     document.body.classList.add('modal-open');
@@ -79,6 +82,25 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
         else next.delete(exerciseId);
         return next;
       });
+    }
+  };
+
+  const toggleDetails = async (id) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    if (details[id]) return; // already loaded
+    setDetails((prev) => ({ ...prev, [id]: 'loading' }));
+    try {
+      const headers = { Authorization: `Bearer ${await getToken()}` };
+      const res = await api.get(`/exercise-log/details/${id}`, { headers });
+      const d = res.data?.data?.result || {};
+      setDetails((prev) => ({ ...prev, [id]: { instructions: d.instructions || [], images: d.images || [] } }));
+    } catch (err) {
+      console.error('Error loading exercise details:', err);
+      setDetails((prev) => ({ ...prev, [id]: 'error' }));
     }
   };
 
@@ -148,49 +170,88 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
 
   const renderRow = (ex) => {
     const fav = favoriteIds.has(ex.id);
+    const expanded = expandedId === ex.id;
+    const det = details[ex.id];
     return (
       <div
         key={ex.id}
-        className={`mb-2 flex items-center gap-2 rounded-lg border px-3.5 py-2.5 ${
-          ex.id === selectedId ? 'border-clay bg-clay-tint' : 'border-line hover:border-clay hover:bg-clay-tint'
+        className={`mb-2 rounded-lg border transition-colors ${
+          ex.id === selectedId ? 'border-clay bg-clay-tint' : 'border-line hover:border-clay'
         }`}
       >
-        <div onClick={() => handleSelect(ex)} className="min-w-0 flex-1 cursor-pointer">
-          <div className="text-sm font-medium">{ex.name}</div>
-          {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
-            <div className="mt-0.5 text-xs">
-              {[...ex.TargetMuscles]
-                .sort(
-                  (a, b) =>
-                    (b.ExerciseTargetMuscle?.isPrimary ? 1 : 0) -
-                    (a.ExerciseTargetMuscle?.isPrimary ? 1 : 0)
-                )
-                .map((m, i) => (
-                  <span
-                    key={m.id}
-                    className={m.ExerciseTargetMuscle?.isPrimary ? 'font-semibold text-muted' : 'text-muted/60'}
-                  >
-                    {i > 0 ? ', ' : ''}
-                    {m.name}
-                  </span>
-                ))}
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+          {ex.images && ex.images.length > 0 ? (
+            <img
+              src={`${IMG_CDN}${ex.images[0]}`}
+              alt=""
+              loading="lazy"
+              onClick={() => handleSelect(ex)}
+              className="h-11 w-11 flex-shrink-0 cursor-pointer rounded-lg border border-line bg-surface-2 object-cover"
+            />
+          ) : (
+            <div className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-lg bg-surface-2 text-muted">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6.5 6.5 11 11" /><path d="m21 21-1-1" /><path d="m3 3 1 1" /><path d="m18 22 4-4" /><path d="m2 6 4-4" /><path d="m3 10 7-7" /><path d="m14 21 7-7" /></svg>
             </div>
           )}
+          <div onClick={() => handleSelect(ex)} className="min-w-0 flex-1 cursor-pointer">
+            <div className="text-sm font-medium">{ex.name}</div>
+            {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
+              <div className="mt-0.5 text-xs">
+                {[...ex.TargetMuscles]
+                  .sort(
+                    (a, b) =>
+                      (b.ExerciseTargetMuscle?.isPrimary ? 1 : 0) -
+                      (a.ExerciseTargetMuscle?.isPrimary ? 1 : 0)
+                  )
+                  .map((m, i) => (
+                    <span
+                      key={m.id}
+                      className={m.ExerciseTargetMuscle?.isPrimary ? 'font-semibold text-muted' : 'text-muted/60'}
+                    >
+                      {i > 0 ? ', ' : ''}
+                      {m.name}
+                    </span>
+                  ))}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Show details"
+            title="Details"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleDetails(ex.id);
+            }}
+            className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-clay ${
+              expanded ? 'text-clay' : ''
+            }`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`transition-transform ${expanded ? 'rotate-180' : ''}`}>
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label={fav ? 'Remove from favorites' : 'Add to favorites'}
+            title={fav ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(ex.id);
+            }}
+            className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg transition-colors ${
+              fav ? 'text-clay hover:bg-clay-tint' : 'text-line-strong hover:bg-surface-2 hover:text-clay'
+            }`}
+          >
+            <StarIcon filled={fav} />
+          </button>
         </div>
-        <button
-          type="button"
-          aria-label={fav ? 'Remove from favorites' : 'Add to favorites'}
-          title={fav ? 'Remove from favorites' : 'Add to favorites'}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleFavorite(ex.id);
-          }}
-          className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg transition-colors ${
-            fav ? 'text-clay hover:bg-clay-tint' : 'text-line-strong hover:bg-surface-2 hover:text-clay'
-          }`}
-        >
-          <StarIcon filled={fav} />
-        </button>
+
+        {expanded && (
+          <div className="border-t border-line px-3.5 py-3">
+            <ExerciseDetail detail={det} />
+          </div>
+        )}
       </div>
     );
   };

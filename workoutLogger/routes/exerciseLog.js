@@ -49,6 +49,18 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Lazy-loaded instructions + image paths for one exercise (for the picker's detail view).
+router.get('/details/:id', async (req, res) => {
+    try {
+        const details = await exerciseService.getExerciseDetails(req.params.id);
+        if (!details) return error(res, 'Exercise not found', 404);
+        return success(res, details);
+    } catch (err) {
+        console.error('Error fetching exercise details:', err);
+        return error(res, 'Failed to get exercise details');
+    }
+});
+
 router.delete('/:id', async (req, res) => {
     const exerciseLogId = req.params.id;
     try {

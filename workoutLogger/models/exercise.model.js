@@ -15,6 +15,16 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: false,
             defaultValue: 'strength'
+        },
+        // Step-by-step instructions (array of strings) and image paths (loaded from the
+        // jsDelivr CDN). Lazy-loaded via the details endpoint, kept out of the list query.
+        instructions: {
+            type: DataTypes.JSON,
+            allowNull: true
+        },
+        images: {
+            type: DataTypes.JSON,
+            allowNull: true
         }
     }, {
         tableName: 'exercises' 

@@ -17,6 +17,8 @@ const { QueryTypes } = require('sequelize');
 const LIB = require('./data/exercise-library.json');
 // exercise name -> [primary target-muscle names] (for the is_primary flag on the join).
 const PRIMARY = require('./data/exercise-primary-muscles.json');
+// exercise name -> { instructions[], images[] } for the detail view.
+const DETAILS = require('./data/exercise-details.json');
 
 const chunk = (arr, size) => {
     const out = [];
@@ -44,8 +46,20 @@ module.exports = {
         await insertAll(queryInterface, 'equipment', LIB.equipment.map((name) => ({ name })));
         await insertAll(queryInterface, 'categories', LIB.categories.map((name) => ({ name })));
 
-        // 2. Insert exercises (with type). Existing names are ignored.
-        await insertAll(queryInterface, 'exercises', LIB.exercises.map((e) => ({ name: e.name, type: e.type })));
+        // 2. Insert exercises (with type + detail). Existing names are ignored.
+        await insertAll(
+            queryInterface,
+            'exercises',
+            LIB.exercises.map((e) => {
+                const d = DETAILS[e.name] || {};
+                return {
+                    name: e.name,
+                    type: e.type,
+                    instructions: JSON.stringify(d.instructions || []),
+                    images: JSON.stringify(d.images || []),
+                };
+            })
+        );
 
         // 3. Resolve ids by name.
         const exIds = await nameToId(queryInterface, 'exercises');

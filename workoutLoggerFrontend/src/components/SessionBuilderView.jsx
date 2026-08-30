@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import api from '../api';
 import Card from './Card';
+import ExerciseDetail from './ExerciseDetail';
 import ExercisePickerModal from './ExercisePickerModal';
 import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
@@ -97,6 +100,29 @@ export default function SessionBuilderView({
   const [notesOpen, setNotesOpen] = useState(false);
   const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
   const [oneRmCalc, setOneRmCalc] = useState(null); // { exerciseId, exerciseName } | null
+  const [detailsFor, setDetailsFor] = useState(null); // exerciseId with details open
+  const [exDetails, setExDetails] = useState({}); // exerciseId -> detail | 'loading' | 'error'
+  const { getToken } = useAuth();
+
+  const toggleExerciseDetails = async (exerciseId) => {
+    if (!exerciseId) return;
+    if (detailsFor === exerciseId) {
+      setDetailsFor(null);
+      return;
+    }
+    setDetailsFor(exerciseId);
+    if (exDetails[exerciseId]) return;
+    setExDetails((p) => ({ ...p, [exerciseId]: 'loading' }));
+    try {
+      const headers = { Authorization: `Bearer ${await getToken()}` };
+      const res = await api.get(`/exercise-log/details/${exerciseId}`, { headers });
+      const d = res.data?.data?.result || {};
+      setExDetails((p) => ({ ...p, [exerciseId]: { instructions: d.instructions || [], images: d.images || [] } }));
+    } catch (err) {
+      console.error('Error loading exercise details:', err);
+      setExDetails((p) => ({ ...p, [exerciseId]: 'error' }));
+    }
+  };
 
   const [coarse, setCoarse] = useState(
     () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
@@ -317,6 +343,18 @@ export default function SessionBuilderView({
                               )}
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-2">
+                              <button
+                                type="button"
+                                aria-label="Show exercise details"
+                                title="Details"
+                                onClick={() => toggleExerciseDetails(exLogs[0]?.exerciseId)}
+                                className={`flex h-8 w-8 items-center justify-center gap-1 rounded-lg border border-line-strong text-sm font-medium transition-colors hover:bg-clay-tint hover:text-clay sm:w-auto sm:px-2.5 ${
+                                  detailsFor === exLogs[0]?.exerciseId ? 'bg-clay-tint text-clay' : 'text-ink'
+                                }`}
+                              >
+                                <span className="hidden sm:inline">Details</span>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`transition-transform ${detailsFor === exLogs[0]?.exerciseId ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6" /></svg>
+                              </button>
                               {coarse ? (
                                 <button
                                   type="button"
@@ -363,6 +401,12 @@ export default function SessionBuilderView({
                               </button>
                             </div>
                           </div>
+
+                          {detailsFor === exLogs[0]?.exerciseId && (
+                            <div className="mb-3 rounded-lg border border-line bg-surface-2 p-3">
+                              <ExerciseDetail detail={exDetails[exLogs[0]?.exerciseId]} />
+                            </div>
+                          )}
 
                           {!isSorting && (
                             <>

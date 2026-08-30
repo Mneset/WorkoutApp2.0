@@ -5,6 +5,9 @@ class ExerciseService {
 
     async getAllExercises() {
         const exercises = await this.db.Exercise.findAll({
+                // Instructions are large and lazy-loaded; images (a couple of short paths)
+                // stay so the list can show a thumbnail.
+                attributes: { exclude: ['instructions'] },
                 include: [
             {
                 model: this.db.TargetMuscle,
@@ -13,6 +16,13 @@ class ExerciseService {
         ]
         })
         return exercises;
+    }
+
+    // Lazy-loaded detail (step-by-step instructions + image paths) for one exercise.
+    async getExerciseDetails(id) {
+        return await this.db.Exercise.findByPk(id, {
+            attributes: ['id', 'name', 'instructions', 'images'],
+        });
     }
 
     async getExerciseById(id) {
