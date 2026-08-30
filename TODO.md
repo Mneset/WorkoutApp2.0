@@ -58,15 +58,19 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   them in an exercise detail view / expandable picker row. Load images from jsDelivr CDN
   (`https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises/<path>`) rather than
   bundling ~1700 files.
-- **Favorite exercises** — let the user star exercises and show a **Favorites** section at
-  the top of the exercise picker (`ExercisePickerModal.jsx`). Needs persistence: cleanest
-  is a backend join table `user_favorite_exercises (user_id, exercise_id)` + a
-  model/migration/service/route + a star toggle in the picker. (localStorage is a simpler
-  per-device fallback but won't sync across devices.)
+- [x] **Favorite exercises** — star toggle on every row in `ExercisePickerModal` + a
+  **★ Favorites** section pinned above the A–Z list (favorites excluded from the letter
+  groups to avoid duplication). Backed by `user_favorite_exercises` (migration `036`) with a
+  service + GET/POST/DELETE routes; the picker fetches the user's favorites on open.
 - [x] **Alphabetical letter headers in the picker** — `ExercisePickerModal` sorts A→Z and
   groups by first letter (non-letters under "#") with a sticky letter header per group;
   the header/search are now fixed and only the list scrolls. (A future Favorites section
   would sit above the A–Z list.)
+- **Add custom exercise** — let the user create their own exercise (name + type +
+  optional target muscles/equipment) from the picker when what they want isn't in the
+  library, and have it appear in the list. Needs a create-exercise route/service and a
+  "+ Create new exercise" affordance in `ExercisePickerModal` (and to mark user-created
+  ones, likely a `created_by`/`user_id` column on `exercises`).
 - **Filter/sort by primary movers** — the seed merged primary + secondary muscles into one
   `TargetMuscles` list, so the muscle filter currently matches any exercise where the muscle
   appears at all (even as a secondary mover). To filter/sort by the *primary* mover, preserve

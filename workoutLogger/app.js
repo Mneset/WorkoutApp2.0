@@ -28,6 +28,7 @@ const sessionTemplateRouter = require('./routes/sessionTemplate');
 const exerciseTemplateRouter = require('./routes/exerciseTemplate');
 const usersRouter = require('./routes/user')
 const oneRepMaxRouter = require('./routes/oneRepMax')
+const favoriteExerciseRouter = require('./routes/favoriteExercise')
 
 // Middleware
 
@@ -50,6 +51,7 @@ app.use(`${apiPreFix}/session-template`, sessionTemplateRouter);
 app.use(`${apiPreFix}/exercise-template`, exerciseTemplateRouter);
 app.use(`${apiPreFix}/users`, usersRouter)
 app.use(`${apiPreFix}/one-rep-max`, oneRepMaxRouter)
+app.use(`${apiPreFix}/favorite-exercises`, favoriteExerciseRouter)
 
 // Initialize the database
 
