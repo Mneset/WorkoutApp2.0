@@ -67,6 +67,7 @@ export default function CreateTemplatePage() {
         exerciseId: exercise.id,
         orderIndex,
         notes: '',
+        weightUnit: 'kg',
         Exercise: { name: exercise.name, type: exercise.type },
         ...blankFields(isCardio),
       },
@@ -84,6 +85,7 @@ export default function CreateTemplatePage() {
         exerciseId: last.exerciseId,
         orderIndex: last.orderIndex,
         notes: '',
+        weightUnit: last.weightUnit || 'kg',
         Exercise: last.Exercise,
         ...blankFields(isCardio, last),
       };
@@ -103,6 +105,10 @@ export default function CreateTemplatePage() {
   const deleteExercise = (exerciseName) =>
     setLogs((prev) => prev.filter((l) => l.Exercise?.name !== exerciseName));
 
+  // Switch an exercise's weight unit (kg ↔ % of 1RM) across all its sets.
+  const setWeightUnit = (exerciseName, unit) =>
+    setLogs((prev) => prev.map((l) => (l.Exercise?.name === exerciseName ? { ...l, weightUnit: unit } : l)));
+
   const applyOrder = (order) => {
     const orderByName = Object.fromEntries(order.map((n, i) => [n, i]));
     setLogs((prev) => prev.map((l) => ({ ...l, orderIndex: orderByName[l.Exercise?.name] ?? l.orderIndex })));
@@ -113,7 +119,7 @@ export default function CreateTemplatePage() {
     const map = new Map();
     for (const l of logs) {
       const n = l.Exercise?.name;
-      if (!map.has(n)) map.set(n, { name: n, type: l.Exercise?.type, exerciseId: l.exerciseId, order: l.orderIndex ?? 0, sets: [] });
+      if (!map.has(n)) map.set(n, { name: n, type: l.Exercise?.type, exerciseId: l.exerciseId, weightUnit: l.weightUnit || 'kg', order: l.orderIndex ?? 0, sets: [] });
       map.get(n).sets.push(l);
     }
     return [...map.values()].sort((a, b) => a.order - b.order);
@@ -177,6 +183,7 @@ export default function CreateTemplatePage() {
             orderIndex: j,
             baseSets: sets.length,
             baseRpe: first.rpe ?? null,
+            weightUnit: g.weightUnit,
             sets,
             ...(isCardio
               ? { baseDurationSeconds: first.durationSeconds ?? null, baseDistance: first.distance ?? null }
@@ -231,6 +238,7 @@ export default function CreateTemplatePage() {
         onDeleteSet={deleteSet}
         onDeleteExercise={deleteExercise}
         onReorder={applyOrder}
+        onSetWeightUnit={setWeightUnit}
         footer={
           <>
             <Button variant="ghost" onClick={() => navigate('/workout-plan?view=templates')}>

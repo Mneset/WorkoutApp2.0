@@ -41,6 +41,13 @@ module.exports = (sequelize, DataTypes) => {
             field: 'base_weight',
             allowNull: true
         },
+        // 'kg' = absolute weights; 'pct' = the set weights are % of the user's 1RM.
+        weightUnit: {
+            type: DataTypes.STRING,
+            field: 'weight_unit',
+            allowNull: false,
+            defaultValue: 'kg'
+        },
         // Cardio base metrics (null for strength templates).
         baseDurationSeconds: {
             type: DataTypes.INTEGER,

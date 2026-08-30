@@ -59,9 +59,15 @@ module.exports = (sequelize, DataTypes) => {
             field: 'target_reps'
         },
         targetWeight: {
-            type: DataTypes.FLOAT,
+            type: DataTypes.STRING,
             allowNull: true,
             field: 'target_weight'
+        },
+        // The percentage behind a %-of-1RM weight (e.g. 70), shown as a caption.
+        targetWeightPct: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+            field: 'target_weight_pct'
         },
         targetDurationSeconds: {
             type: DataTypes.INTEGER,

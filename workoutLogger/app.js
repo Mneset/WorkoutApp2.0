@@ -27,6 +27,7 @@ const workoutPlanRouter = require('./routes/workoutPlan');
 const sessionTemplateRouter = require('./routes/sessionTemplate');
 const exerciseTemplateRouter = require('./routes/exerciseTemplate');
 const usersRouter = require('./routes/user')
+const oneRepMaxRouter = require('./routes/oneRepMax')
 
 // Middleware
 
@@ -48,6 +49,7 @@ app.use(`${apiPreFix}/workout-plan`, workoutPlanRouter);
 app.use(`${apiPreFix}/session-template`, sessionTemplateRouter);
 app.use(`${apiPreFix}/exercise-template`, exerciseTemplateRouter);
 app.use(`${apiPreFix}/users`, usersRouter)
+app.use(`${apiPreFix}/one-rep-max`, oneRepMaxRouter)
 
 // Initialize the database
 

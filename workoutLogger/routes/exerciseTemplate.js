@@ -48,10 +48,10 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', validate(createExerciseTemplateSchema), async (req, res) => {
-    const { sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseDurationSeconds, baseDistance, baseRpe, baseRir, sets, notes } = req.body;
+    const { sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseDurationSeconds, baseDistance, baseRpe, baseRir, sets, notes, weightUnit } = req.body;
     try {
         const newExerciseTemplate = await exerciseTemplateService.addExerciseTemplate({
-            sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseDurationSeconds, baseDistance, baseRpe, baseRir, sets, notes,
+            sessionTemplateId, exerciseId, orderIndex, baseSets, baseReps, baseWeight, baseDurationSeconds, baseDistance, baseRpe, baseRir, sets, notes, weightUnit,
         });
         return success(res, newExerciseTemplate, 201);
     } catch (err) {

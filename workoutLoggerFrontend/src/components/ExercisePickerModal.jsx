@@ -39,6 +39,29 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
     return muscles;
   }, []);
 
+  // Sort A→Z and group by first letter (non-letters bucket under "#") so the now-large
+  // list reads as an alphabetised index with sticky letter headers.
+  const letterGroups = (() => {
+    const sorted = [...filteredExercises].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+    const groups = [];
+    let current = null;
+    for (const ex of sorted) {
+      const ch = ex.name.trim()[0]?.toUpperCase() || '#';
+      const letter = /[A-Z]/.test(ch) ? ch : '#';
+      if (!current || current.letter !== letter) {
+        current = { letter, items: [] };
+        groups.push(current);
+      }
+      current.items.push(ex);
+    }
+    // Non-letter names ("#") sort before letters — move that group to the end instead.
+    const hashIndex = groups.findIndex((g) => g.letter === '#');
+    if (hashIndex > -1) groups.push(groups.splice(hashIndex, 1)[0]);
+    return groups;
+  })();
+
   const handleSelect = (ex) => {
     setSelectedId(ex.id);
     onSelect(ex);
@@ -51,7 +74,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
       onClick={onClose}
     >
       <Card
-        className="w-full max-w-lg max-h-[85vh] overflow-y-auto p-6"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -88,21 +111,28 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
           )}
         </div>
 
-        <div>
-          {filteredExercises.map((ex) => (
-            <div
-              key={ex.id}
-              onClick={() => handleSelect(ex)}
-              className={`mb-2 cursor-pointer rounded-lg border px-3.5 py-2.5 hover:border-clay hover:bg-clay-tint ${
-                ex.id === selectedId ? 'border-clay bg-clay-tint' : 'border-line'
-              }`}
-            >
-              <div className="text-sm font-medium">{ex.name}</div>
-              {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
-                <div className="mt-0.5 text-xs text-muted">
-                  {ex.TargetMuscles.map((m) => m.name).join(', ')}
+        <div className="-mx-1 flex-1 overflow-y-auto px-1">
+          {letterGroups.map((group) => (
+            <div key={group.letter}>
+              <div className="sticky top-0 z-10 bg-surface py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                {group.letter}
+              </div>
+              {group.items.map((ex) => (
+                <div
+                  key={ex.id}
+                  onClick={() => handleSelect(ex)}
+                  className={`mb-2 cursor-pointer rounded-lg border px-3.5 py-2.5 hover:border-clay hover:bg-clay-tint ${
+                    ex.id === selectedId ? 'border-clay bg-clay-tint' : 'border-line'
+                  }`}
+                >
+                  <div className="text-sm font-medium">{ex.name}</div>
+                  {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
+                    <div className="mt-0.5 text-xs text-muted">
+                      {ex.TargetMuscles.map((m) => m.name).join(', ')}
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           ))}
           {filteredExercises.length === 0 && (

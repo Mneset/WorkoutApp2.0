@@ -119,6 +119,7 @@ export default function CreatePlanPage() {
               exerciseName: exercise.name,
               type: isCardio ? 'cardio' : 'strength',
               notes: '',
+              weightUnit: 'kg',
               sets: [blankSet(isCardio)],
             },
           ],
@@ -180,6 +181,21 @@ export default function CreatePlanPage() {
       })
     );
   };
+
+  // Switch an exercise's weight unit (kg ↔ % of 1RM).
+  const setExerciseWeightUnit = (templateTempId, exerciseTempId, unit) =>
+    setSessionTemplates((prev) =>
+      prev.map((s) =>
+        s.tempId !== templateTempId
+          ? s
+          : {
+              ...s,
+              exercises: s.exercises.map((e) =>
+                e.tempId === exerciseTempId ? { ...e, weightUnit: unit } : e
+              ),
+            }
+      )
+    );
 
   // Reorder a template's exercises to match a dragged order of tempIds (mobile drag).
   const reorderExercisesInTemplate = (templateTempId, orderedTempIds) => {
@@ -288,6 +304,7 @@ export default function CreatePlanPage() {
               orderIndex: j,
               baseSets: sets.length,
               baseRpe: first.rpe ?? null,
+              weightUnit: ex.weightUnit || 'kg',
               sets,
               notes: ex.notes?.trim() || null,
               ...(isCardio
@@ -441,10 +458,30 @@ export default function CreatePlanPage() {
                 <span className="w-4 shrink-0 font-semibold text-clay">{idx + 1}</span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-ink">{exName}</div>
-                  {isCardio && (
+                  {isCardio ? (
                     <span className="mt-0.5 inline-block rounded-full bg-clay-tint px-2 py-0.5 text-[10px] font-semibold text-clay">
                       Cardio
                     </span>
+                  ) : (
+                    <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-line-strong text-[10px]">
+                      {[
+                        { u: 'kg', label: 'kg' },
+                        { u: 'pct', label: '% 1RM' },
+                      ].map(({ u, label }) => (
+                        <button
+                          key={u}
+                          type="button"
+                          onClick={() => setExerciseWeightUnit(st.tempId, ex.tempId, u)}
+                          className={`px-1.5 py-0.5 font-semibold transition-colors ${
+                            (ex.weightUnit || 'kg') === u
+                              ? 'bg-clay-tint text-clay'
+                              : 'text-muted hover:text-ink'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
                 {coarse ? (
@@ -496,7 +533,7 @@ export default function CreatePlanPage() {
                 <div className={`grid ${gridCols} items-center gap-1.5 border-b border-line pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted`}>
                   <span>Set</span>
                   <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
-                  <span className="text-center">{isCardio ? 'Km' : 'Kg'}</span>
+                  <span className="text-center">{isCardio ? 'Km' : ex.weightUnit === 'pct' ? '%' : 'Kg'}</span>
                   <span className="text-center">RPE</span>
                   {!isCardio && <span className="text-center">RIR</span>}
                   <span />

@@ -37,10 +37,15 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 
 ## Backlog / ideas
 
-- **Weight as % of 1RM in plans/templates** — let a prescribed weight be entered as a
-  percentage of the user's 1RM (e.g. "75%") instead of an absolute kg, resolved to a real
-  target when a session is started. Needs a per-exercise 1RM somewhere and a weight field
-  that accepts either kg or `%`. (Requested alongside rep ranges; deferred.)
+- **Profile section** — a profile screen to edit basic info, with toggles for which fields
+  are shown while logging (include RIR, RPE, etc.). Move **Log out** into the profile
+  instead of the navbar.
+- [x] **Weight as % of 1RM in plans/templates** — per-exercise **kg / % 1RM** toggle in the
+  plan & template builders (weight input stays decimal; `weight_unit` on `exercisetemplate`,
+  migration `032`). Manual per-exercise **1RMs** in a new `/one-rep-max` screen (table
+  `user_exercise_1rm`, migration `031`) with a **Calculate** helper (weight×reps Epley) and
+  **Estimate from history**. `startSession` resolves a `%` set to `round(1RM × pct/100)` to
+  the nearest 2.5 kg (blank if no 1RM on file).
 
 - [x] **Plan builder exercise selection** — replaced the plain ~873-option `<select>` with
   the shared `ExercisePickerModal`: each template day has split **"+ Add exercise" /
@@ -57,10 +62,10 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   is a backend join table `user_favorite_exercises (user_id, exercise_id)` + a
   model/migration/service/route + a star toggle in the picker. (localStorage is a simpler
   per-device fallback but won't sync across devices.)
-- **Alphabetical letter headers in the picker** — sort the exercise list A→Z and insert a
-  sticky letter header before each group (A, B, C …) so the now-large list feels organised
-  (`ExercisePickerModal.jsx`: sort `filteredExercises` by name, group by first letter,
-  render a header per group). Favorites section sits above the A–Z list.
+- [x] **Alphabetical letter headers in the picker** — `ExercisePickerModal` sorts A→Z and
+  groups by first letter (non-letters under "#") with a sticky letter header per group;
+  the header/search are now fixed and only the list scrolls. (A future Favorites section
+  would sit above the A–Z list.)
 - **Filter/sort by primary movers** — the seed merged primary + secondary muscles into one
   `TargetMuscles` list, so the muscle filter currently matches any exercise where the muscle
   appears at all (even as a secondary mover). To filter/sort by the *primary* mover, preserve

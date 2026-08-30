@@ -127,7 +127,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   // Presentational count-up timer.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const { getToken } = useAuth();
+  const { getToken, user } = useAuth();
   const { handleSessionEnded } = useSession();
   const navigate = useNavigate();
 
@@ -349,6 +349,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
           // Carry the prescription placeholders onto the new set too.
           targetReps: lastLog.targetReps ?? null,
           targetWeight: lastLog.targetWeight ?? null,
+          targetWeightPct: lastLog.targetWeightPct ?? null,
           targetDurationSeconds: lastLog.targetDurationSeconds ?? null,
           targetDistance: lastLog.targetDistance ?? null,
           sessionLogId,
@@ -440,6 +441,30 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     }
   };
 
+  // Set a 1RM for an exercise mid-session and immediately resolve its %-based targets
+  // (both locally and persisted, so a reload keeps the resolved kg).
+  const handleSetOneRepMax = async (exerciseId, oneRm) => {
+    const resolve = (pct) => String(Math.round(((Number(oneRm) * Number(pct)) / 100) / 2.5) * 2.5);
+    try {
+      const accessToken = await getToken();
+      const headers = { Authorization: `Bearer ${accessToken}` };
+      await api.put('/one-rep-max', { userId: user.sub, exerciseId, oneRm }, { headers });
+      const updated = editTableLogs.map((l) =>
+        l.exerciseId === exerciseId && l.targetWeightPct != null
+          ? { ...l, targetWeight: resolve(l.targetWeightPct) }
+          : l
+      );
+      setEditTableLogs(updated);
+      for (const l of updated) {
+        if (l.id && l.exerciseId === exerciseId && l.targetWeightPct != null) {
+          await api.put(`/exercise-log/${l.id}`, { targetWeight: l.targetWeight }, { headers });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to set 1RM:', err);
+    }
+  };
+
   useEffect(() => {
     handleGetSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -505,6 +530,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       onDeleteSet={handleDeleteSet}
       onDeleteExercise={deleteExercise}
       onReorder={applyExerciseOrder}
+      onSetOneRepMax={handleSetOneRepMax}
       footer={
         <>
           {editMode ? (

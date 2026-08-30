@@ -4,6 +4,7 @@ import ExercisePickerModal from './ExercisePickerModal';
 import ScoreSelect from './ScoreSelect';
 import SwipeToDelete from './SwipeToDelete';
 import AccentCard from './AccentCard';
+import OneRepMaxCalcModal from './OneRepMaxCalcModal';
 import { SortableColumn, SortableRow, GripIcon } from './Sortable';
 import { parseDuration, formatDuration, formatTimeInput, pace } from '../duration';
 
@@ -62,6 +63,8 @@ export default function SessionBuilderView({
   onDeleteSet,
   onDeleteExercise,
   onReorder,
+  onSetWeightUnit,
+  onSetOneRepMax,
   footer,
   // Template-building mode: reps is a free-text field (allows a range like "8-12") and
   // fields show generic placeholders instead of a prescribed target.
@@ -72,6 +75,7 @@ export default function SessionBuilderView({
   const [editingName, setEditingName] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
+  const [oneRmCalc, setOneRmCalc] = useState(null); // { exerciseId, exerciseName } | null
 
   const [coarse, setCoarse] = useState(
     () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
@@ -226,6 +230,9 @@ export default function SessionBuilderView({
             >
               {groupedLogs.map(([exerciseName, exLogs], groupIndex) => {
                 const isCardio = exLogs[0]?.Exercise?.type === 'cardio';
+                const isPct = (exLogs[0]?.weightUnit || 'kg') === 'pct';
+                // Live logging: any set prescribed by % (needs room below for its label).
+                const anyPct = !templateMode && exLogs.some((l) => l.targetWeightPct != null);
                 return (
                   <SortableRow key={exerciseName} id={exerciseName}>
                     {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
@@ -241,6 +248,27 @@ export default function SessionBuilderView({
                                 <span className="mt-1 inline-block rounded-full bg-clay-tint px-2 py-0.5 text-[11px] font-semibold text-clay">
                                   Cardio
                                 </span>
+                              )}
+                              {templateMode && !isCardio && (
+                                <div className="mt-1.5 inline-flex overflow-hidden rounded-lg border border-line-strong text-[11px]">
+                                  {[
+                                    { u: 'kg', label: 'kg' },
+                                    { u: 'pct', label: '% 1RM' },
+                                  ].map(({ u, label }) => (
+                                    <button
+                                      key={u}
+                                      type="button"
+                                      onClick={() => onSetWeightUnit?.(exerciseName, u)}
+                                      className={`px-2 py-0.5 font-semibold transition-colors ${
+                                        (isPct ? 'pct' : 'kg') === u
+                                          ? 'bg-clay-tint text-clay'
+                                          : 'text-muted hover:text-ink'
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
                               )}
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-2">
@@ -297,7 +325,7 @@ export default function SessionBuilderView({
                               <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2">
                                 <span>Set</span>
                                 <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
-                                <span className="text-center">{isCardio ? 'Km' : 'Kg'}</span>
+                                <span className="text-center">{isCardio ? 'Km' : isPct ? '%' : 'Kg'}</span>
                                 <span
                                   className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
                                   title="RPE — Rate of Perceived Exertion: how hard the set felt (1 easy → 10 max effort)"
@@ -326,8 +354,8 @@ export default function SessionBuilderView({
                                 >
                                   <div
                                     className={`grid grid-cols-[30px_1fr_1fr_1fr_1fr] items-center gap-1.5 py-3 sm:grid-cols-[34px_1fr_1fr_72px_72px_1.2fr] sm:gap-2 ${
-                                      index > 0 ? 'border-t border-line' : ''
-                                    }`}
+                                      anyPct ? 'pb-7' : ''
+                                    } ${index > 0 ? 'border-t border-line' : ''}`}
                                   >
                                     <div className="row-span-2 flex items-center self-center sm:row-span-1">
                                       <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
@@ -390,20 +418,59 @@ export default function SessionBuilderView({
                                         onBlur={() => commit(log)}
                                       />
                                     ) : (
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        inputMode="decimal"
-                                        placeholder={templateMode ? '–' : ph(log.targetWeight)}
-                                        className={numInputClass}
-                                        value={log.weight ?? ''}
-                                        onChange={(e) => {
-                                          if (Number(e.target.value) < 0) return;
-                                          onUpdateLog(log, { weight: e.target.value });
-                                        }}
-                                        onBlur={() => commit(log)}
-                                      />
+                                      <div className="relative">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          inputMode="decimal"
+                                          placeholder={
+                                            templateMode
+                                              ? '–'
+                                              : log.targetWeight != null && log.targetWeight !== ''
+                                              ? String(log.targetWeight)
+                                              : log.targetWeightPct != null
+                                              ? `${log.targetWeightPct}%`
+                                              : '–'
+                                          }
+                                          className={numInputClass}
+                                          value={log.weight ?? ''}
+                                          onChange={(e) => {
+                                            if (Number(e.target.value) < 0) return;
+                                            onUpdateLog(log, { weight: e.target.value });
+                                          }}
+                                          onBlur={() => commit(log)}
+                                        />
+                                        {/* Absolutely positioned so it never changes the input's
+                                            height / breaks alignment with the other columns. */}
+                                        {!templateMode &&
+                                          log.targetWeight != null &&
+                                          log.targetWeight !== '' &&
+                                          log.targetWeightPct != null && (
+                                            <span className="pointer-events-none absolute inset-x-0 top-full mt-1 text-center text-[11px] font-semibold leading-none text-clay">
+                                              {log.weight != null && log.weight !== '' && Number(log.weight) > 0
+                                                ? `${Math.round((Number(log.weight) * Number(log.targetWeightPct)) / Number(log.targetWeight))}% of 1RM`
+                                                : `Target ${log.targetWeightPct}% of 1RM (${log.targetWeight} kg)`}
+                                            </span>
+                                          )}
+                                        {!templateMode &&
+                                          onSetOneRepMax &&
+                                          log.targetWeightPct != null &&
+                                          (log.targetWeight == null || log.targetWeight === '') && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setOneRmCalc({
+                                                  exerciseId: log.exerciseId,
+                                                  exerciseName: log.Exercise?.name,
+                                                })
+                                              }
+                                              className="absolute inset-x-0 top-full mx-auto mt-1 w-max rounded-full bg-clay-tint px-2 py-0.5 text-[11px] font-semibold leading-none text-clay hover:bg-clay hover:text-white"
+                                            >
+                                              Set 1RM
+                                            </button>
+                                          )}
+                                      </div>
                                     )}
                                     <ScoreSelect
                                       value={log.rpe ?? ''}
@@ -490,6 +557,17 @@ export default function SessionBuilderView({
           exercises={exercises}
           onClose={() => setPickerType(null)}
           onSelect={(exercise) => onAddExercise(exercise)}
+        />
+      )}
+
+      {oneRmCalc && (
+        <OneRepMaxCalcModal
+          exerciseName={oneRmCalc.exerciseName}
+          onClose={() => setOneRmCalc(null)}
+          onSet={(oneRm) => {
+            onSetOneRepMax?.(oneRmCalc.exerciseId, oneRm);
+            setOneRmCalc(null);
+          }}
         />
       )}
     </div>

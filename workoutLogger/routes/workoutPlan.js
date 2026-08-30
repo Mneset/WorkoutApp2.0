@@ -27,6 +27,19 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Exercises across this plan that need a 1RM (prescribed by %) but don't have one yet.
+router.get('/:id/missing-one-rep-max', async (req, res) => {
+    const { userId } = req.query;
+    if (!userId) return error(res, 'userId is required', 400);
+    try {
+        const missing = await workoutPlanService.getMissingOneRepMax(req.params.id, userId);
+        return success(res, missing);
+    } catch (err) {
+        console.error('Error checking missing 1RMs:', err);
+        return error(res, 'Failed to check 1RMs');
+    }
+});
+
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {

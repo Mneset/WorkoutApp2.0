@@ -1,3 +1,20 @@
+// Resolve a prescribed set weight to the absolute kg placeholder. 'kg' exercises use the
+// value directly; 'pct' exercises resolve against the user's 1RM (nearest 2.5 kg), or null
+// when no 1RM is on file (the % caption still conveys the intent).
+function computeTargetKg(weight, isPct, oneRm) {
+    if (weight == null || weight === '') return null;
+    if (!isPct) return String(Number(weight));
+    if (!oneRm) return null;
+    const kg = Math.round(((Number(oneRm) * Number(weight)) / 100) / 2.5) * 2.5;
+    return String(kg);
+}
+
+// The percentage behind a 'pct' set (for the caption); null for kg exercises.
+function computeTargetPct(weight, isPct) {
+    if (isPct && weight != null && weight !== '') return Number(weight);
+    return null;
+}
+
 class SessionService {
     constructor(db) {
         this.db = db;
@@ -53,6 +70,7 @@ class SessionService {
             }
 
             let sessionTemplate = null
+            let oneRmByExercise = {}
 
             if(sessionTemplateId) {
                 const user = await this.db.User.findByPk(userId)
@@ -62,6 +80,10 @@ class SessionService {
                         include: [this.db.Exercise]
                     }]
                 })
+
+                // 1RMs for resolving any percentage-based prescribed weights.
+                const oneRmRows = await this.db.OneRepMax.findAll({ where: { userId } })
+                oneRmByExercise = Object.fromEntries(oneRmRows.map(r => [r.exerciseId, r.oneRm]))
 
                 if(sessionTemplate) {
                     if (sessionTemplate.workout_plan_id && user?.workoutPlanId) {
@@ -90,6 +112,8 @@ class SessionService {
 
             sessionTemplate.ExerciseTemplates.forEach(exerciseTemplate => {
                 const isCardio = exerciseTemplate.Exercise?.type === 'cardio';
+                const isPct = exerciseTemplate.weightUnit === 'pct';
+                const oneRm = oneRmByExercise[exerciseTemplate.exerciseId];
 
                 // Prefer the per-set prescription; fall back to baseSets identical sets for
                 // legacy templates saved before the `sets` column existed.
@@ -119,7 +143,8 @@ class SessionService {
                             durationSeconds: null,
                             distance: null,
                             targetReps: isCardio ? null : (set.reps != null && set.reps !== '' ? String(set.reps) : null),
-                            targetWeight: isCardio ? null : (set.weight ?? null),
+                            targetWeight: isCardio ? null : computeTargetKg(set.weight, isPct, oneRm),
+                            targetWeightPct: isCardio ? null : computeTargetPct(set.weight, isPct),
                             targetDurationSeconds: isCardio ? (set.durationSeconds ?? null) : null,
                             targetDistance: isCardio ? (set.distance ?? null) : null,
                             notes: set.notes ?? '',

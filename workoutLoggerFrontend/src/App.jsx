@@ -7,6 +7,7 @@ import HistoryPage from './components/HistoryPage';
 import PlansPage from './components/PlansPage';
 import CreatePlanPage from './components/CreatePlanPage';
 import CreateTemplatePage from './components/CreateTemplatePage';
+import OneRepMaxPage from './components/OneRepMaxPage';
 import LandingPage from './components/LandingPage';
 import AddToHomeScreenPrompt from './components/AddToHomeScreenPrompt';
 
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/workout-plan" element={<PlansPage />} />
           <Route path="/workout-plan/create-plan" element={<CreatePlanPage />} />
           <Route path="/workout-plan/create-template" element={<CreateTemplatePage />} />
+          <Route path="/one-rep-max" element={<OneRepMaxPage />} />
         </Routes>
       </main>
       <AddToHomeScreenPrompt />

@@ -4,7 +4,7 @@ import Button from './Button';
 import { formatDuration, pace } from '../duration';
 
 // One prescribed set → a compact human-readable line.
-function describeSet(set, isCardio) {
+function describeSet(set, isCardio, isPct) {
   if (isCardio) {
     const parts = [];
     if (set.durationSeconds) parts.push(formatDuration(set.durationSeconds));
@@ -16,7 +16,7 @@ function describeSet(set, isCardio) {
   }
   const reps = set.reps ?? '–';
   const weight = set.weight ?? 0;
-  let line = `${reps} × ${weight} kg`;
+  let line = `${reps} × ${weight}${isPct ? '% 1RM' : ' kg'}`;
   const extra = [];
   if (set.rpe != null && set.rpe !== '') extra.push(`RPE ${set.rpe}`);
   if (set.rir != null && set.rir !== '') extra.push(`RIR ${set.rir}`);
@@ -73,6 +73,7 @@ export default function FullTemplateModal({ template, onClose, onStart, onDelete
           ) : (
             exercises.map((ex) => {
               const isCardio = ex.Exercise?.type === 'cardio';
+              const isPct = ex.weightUnit === 'pct';
               const sets = setsFor(ex);
               return (
                 <div key={ex.id} className="rounded-xl border border-line bg-surface-2 px-4 py-3">
@@ -91,7 +92,7 @@ export default function FullTemplateModal({ template, onClose, onStart, onDelete
                     {sets.map((set, i) => (
                       <li key={i} className="flex gap-2 text-sm text-muted">
                         <span className="font-mono text-xs text-clay">{i + 1}</span>
-                        <span>{describeSet(set, isCardio)}</span>
+                        <span>{describeSet(set, isCardio, isPct)}</span>
                       </li>
                     ))}
                   </ul>
