@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import Button from './Button';
 import SessionBuilderView, { Eyebrow } from './SessionBuilderView';
-import { parseDuration } from '../duration';
+import { parseDuration, formatDuration } from '../duration';
 
 const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
 
@@ -16,6 +16,12 @@ const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Num
 export default function CreateTemplatePage() {
   const { getToken, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { id: routeId } = useParams();
+  // Edit mode: the id comes from the URL (so it survives a reload). The full nested
+  // template rides along via nav state as a fast path; on a hard refresh we fetch it.
+  const editId = routeId ? Number(routeId) : null;
+  const [editTemplate, setEditTemplate] = useState(location.state?.editTemplate || null);
 
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
@@ -46,6 +52,62 @@ export default function CreateTemplatePage() {
     };
     fetchExercises();
   }, [getToken]);
+
+  // On a hard reload the nav state is gone — fetch the template by its URL id.
+  useEffect(() => {
+    if (!editId || editTemplate) return;
+    (async () => {
+      try {
+        const accessToken = await getToken();
+        const res = await api.get('/session-template/standalone', {
+          params: { userId: user.sub },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const found = (res.data?.data?.result || []).find((t) => t.id === editId);
+        if (found) setEditTemplate(found);
+        else setError('Template not found');
+      } catch (err) {
+        setError('Failed to load template');
+        console.error(err);
+      }
+    })();
+  }, [editId, editTemplate, getToken, user]);
+
+  // Populate the builder from the template being edited (once it's available).
+  const populated = useRef(false);
+  useEffect(() => {
+    if (!editTemplate || populated.current) return;
+    populated.current = true;
+    setName(editTemplate.name || '');
+    setNotes(editTemplate.notes || '');
+    const rows = [];
+    const sorted = [...(editTemplate.ExerciseTemplates || [])].sort(
+      (a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)
+    );
+    sorted.forEach((et, idx) => {
+      const isCardio = et.Exercise?.type === 'cardio';
+      const sets = Array.isArray(et.sets) && et.sets.length ? et.sets : [{}];
+      sets.forEach((s) => {
+        rows.push({
+          id: makeId(),
+          exerciseId: et.exerciseId,
+          exerciseName: et.Exercise?.name,
+          type: isCardio ? 'cardio' : 'strength',
+          orderIndex: idx,
+          notes: s.notes ?? '',
+          weightUnit: et.weightUnit || 'kg',
+          ...(isCardio
+            ? {
+                durationSeconds: s.durationSeconds ? formatDuration(s.durationSeconds) : '',
+                distance: s.distance ?? '',
+                rpe: s.rpe ?? null,
+              }
+            : { reps: s.reps ?? '', weight: s.weight ?? '', rpe: s.rpe ?? null, rir: s.rir ?? null }),
+        });
+      });
+    });
+    setLogs(rows);
+  }, [editTemplate]);
 
   const blankFields = (isCardio, from = {}) =>
     isCardio
@@ -142,13 +204,26 @@ export default function CreateTemplatePage() {
       const accessToken = await getToken();
       const headers = { Authorization: `Bearer ${accessToken}` };
 
-      // 1. Create the standalone template (owned by the user, no plan).
-      const tplRes = await api.post(
-        '/session-template',
-        { name: name.trim(), userId: user.sub, notes: notes.trim() || null },
-        { headers }
-      );
-      const template = tplRes.data.data.result;
+      // 1. Create the template, or update it and clear its old exercises for replacement.
+      let templateId;
+      if (editId) {
+        await api.put(
+          `/session-template/${editId}`,
+          { name: name.trim(), notes: notes.trim() || null },
+          { headers }
+        );
+        for (const et of editTemplate?.ExerciseTemplates || []) {
+          await api.delete(`/exercise-template/${et.id}`, { headers });
+        }
+        templateId = editId;
+      } else {
+        const tplRes = await api.post(
+          '/session-template',
+          { name: name.trim(), userId: user.sub, notes: notes.trim() || null },
+          { headers }
+        );
+        templateId = tplRes.data.data.result.id;
+      }
 
       // 2. One exercise-template per exercise, carrying its per-set prescription.
       for (let j = 0; j < groups.length; j++) {
@@ -178,7 +253,7 @@ export default function CreateTemplatePage() {
         await api.post(
           '/exercise-template',
           {
-            sessionTemplateId: template.id,
+            sessionTemplateId: templateId,
             exerciseId: Number(g.exerciseId),
             orderIndex: j,
             baseSets: sets.length,
@@ -227,7 +302,7 @@ export default function CreateTemplatePage() {
         onNameChange={setName}
         namePlaceholder="New template"
         templateMode
-        statusEyebrow={<Eyebrow>NEW TEMPLATE</Eyebrow>}
+        statusEyebrow={<Eyebrow>{editId ? 'EDIT TEMPLATE' : 'NEW TEMPLATE'}</Eyebrow>}
         note={notes}
         onNoteChange={setNotes}
         logs={logs}
@@ -245,7 +320,7 @@ export default function CreateTemplatePage() {
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save template'}
+              {saving ? 'Saving…' : editId ? 'Save changes' : 'Save template'}
             </Button>
           </>
         }

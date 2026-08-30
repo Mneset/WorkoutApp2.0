@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import Card from './Card';
@@ -7,7 +7,7 @@ import Button from './Button';
 import ScoreSelect from './ScoreSelect';
 import ExercisePickerModal from './ExercisePickerModal';
 import { SortableColumn, SortableRow, GripIcon } from './Sortable';
-import { parseDuration, formatTimeInput } from '../duration';
+import { parseDuration, formatDuration, formatTimeInput } from '../duration';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -27,6 +27,12 @@ const Eyebrow = ({ children }) => (
 export default function CreatePlanPage() {
   const { getToken } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { id: routeId } = useParams();
+  // Edit mode: the id comes from the URL (so it survives a reload). The full nested
+  // plan rides along via nav state as a fast path; on a hard refresh we fetch it.
+  const editId = routeId ? Number(routeId) : null;
+  const [editPlan, setEditPlan] = useState(location.state?.editPlan || null);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -67,6 +73,69 @@ export default function CreatePlanPage() {
     };
     fetchExercises();
   }, [getToken]);
+
+  // On a hard reload the nav state is gone — fetch the plan by its URL id.
+  useEffect(() => {
+    if (!editId || editPlan) return;
+    (async () => {
+      try {
+        const accessToken = await getToken();
+        const res = await api.get('/workout-plan', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const found = (res.data?.data?.result || []).find((p) => p.id === editId);
+        if (found) setEditPlan(found);
+        else setError('Plan not found');
+      } catch (err) {
+        setError('Failed to load plan');
+        console.error(err);
+      }
+    })();
+  }, [editId, editPlan, getToken]);
+
+  // Populate the builder from the plan being edited (once it's available).
+  const populated = useRef(false);
+  useEffect(() => {
+    if (!editPlan || populated.current) return;
+    populated.current = true;
+    setName(editPlan.name || '');
+    setDescription(editPlan.description || '');
+    setDurationWeeks(editPlan.durationWeeks || 4);
+    let idc = Date.now();
+    const uid = () => idc++;
+    const days = [...(editPlan.SessionTemplates || [])]
+      .sort((a, b) => (a.dayOffset ?? 0) - (b.dayOffset ?? 0))
+      .map((st) => ({
+        tempId: uid(),
+        name: st.name || '',
+        dayOffset: st.dayOffset ?? 0,
+        notes: st.notes || '',
+        exercises: [...(st.ExerciseTemplates || [])]
+          .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+          .map((et) => {
+            const isCardio = et.Exercise?.type === 'cardio';
+            const sets = Array.isArray(et.sets) && et.sets.length ? et.sets : [{}];
+            return {
+              tempId: uid(),
+              exerciseId: et.exerciseId,
+              exerciseName: et.Exercise?.name,
+              type: isCardio ? 'cardio' : 'strength',
+              notes: et.notes || '',
+              weightUnit: et.weightUnit || 'kg',
+              sets: sets.map((s) =>
+                isCardio
+                  ? {
+                      durationSeconds: s.durationSeconds ? formatDuration(s.durationSeconds) : '',
+                      distance: s.distance ?? '',
+                      rpe: s.rpe ?? null,
+                    }
+                  : { reps: s.reps ?? '', weight: s.weight ?? '', rpe: s.rpe ?? null, rir: s.rir ?? null }
+              ),
+            };
+          }),
+      }));
+    setSessionTemplates(days);
+  }, [editPlan]);
 
   const addSessionTemplate = () => {
     setSessionTemplates((prev) => [
@@ -243,18 +312,35 @@ export default function CreatePlanPage() {
       const accessToken = await getToken();
       const headers = { Authorization: `Bearer ${accessToken}` };
 
-      // 1. Create the workout plan
-      const planResponse = await api.post(
-        '/workout-plan',
-        {
-          name: name.trim(),
-          description: description.trim(),
-          durationWeeks: Number(durationWeeks),
-        },
-        { headers }
-      );
-
-      const plan = planResponse.data.data.result;
+      // 1. Create the plan, or update it and clear its old days for replacement.
+      let planId;
+      if (editId) {
+        await api.put(
+          `/workout-plan/${editId}`,
+          {
+            name: name.trim(),
+            description: description.trim(),
+            durationWeeks: Number(durationWeeks),
+          },
+          { headers }
+        );
+        // Delete existing day templates (cascades their exercise templates).
+        for (const st of editPlan?.SessionTemplates || []) {
+          await api.delete(`/session-template/${st.id}`, { headers });
+        }
+        planId = editId;
+      } else {
+        const planResponse = await api.post(
+          '/workout-plan',
+          {
+            name: name.trim(),
+            description: description.trim(),
+            durationWeeks: Number(durationWeeks),
+          },
+          { headers }
+        );
+        planId = planResponse.data.data.result.id;
+      }
 
       // 2. Create session templates
       for (let i = 0; i < sessionTemplates.length; i++) {
@@ -264,7 +350,7 @@ export default function CreatePlanPage() {
           {
             name: st.name.trim(),
             dayOffset: Number(st.dayOffset),
-            workoutPlanId: plan.id,
+            workoutPlanId: planId,
             notes: st.notes?.trim() || null,
           },
           { headers }
@@ -325,7 +411,7 @@ export default function CreatePlanPage() {
 
       navigate('/workout-plan');
     } catch (err) {
-      const msg = err.response?.data?.data?.message || 'Failed to create plan';
+      const msg = err.response?.data?.data?.message || (editId ? 'Failed to save plan' : 'Failed to create plan');
       setError(msg);
       console.error('Error creating plan:', err);
     } finally {
@@ -349,7 +435,7 @@ export default function CreatePlanPage() {
       >
         ← Plans
       </span>
-      <h1 className="mt-1 text-2xl">Create a plan</h1>
+      <h1 className="mt-1 text-2xl">{editId ? 'Edit plan' : 'Create a plan'}</h1>
 
       {/* Details */}
       <Card className="mt-6 p-6">
@@ -683,7 +769,7 @@ export default function CreatePlanPage() {
           Cancel
         </Button>
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Creating plan…' : 'Create plan'}
+          {saving ? 'Saving…' : editId ? 'Save changes' : 'Create plan'}
         </Button>
       </div>
 

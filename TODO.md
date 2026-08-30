@@ -37,6 +37,13 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 
 ## Backlog / ideas
 
+- [x] **Edit plans & templates** — a pencil edit icon on each plan/template card opens the
+  builder (`CreatePlanPage` / `CreateTemplatePage`) in **edit mode**, pre-populated from the
+  card's nested data (passed via nav state). Save **replaces**: PUT the top-level fields,
+  delete the old children, re-create from the builder. Plan-day deletion is made safe by a
+  FK change on `sessionlog.session_template_id` → **ON DELETE SET NULL** (migration `042`;
+  a logged session keeps its data, just loses its day link). No new endpoints.
+
 - [x] **Trim the exercise list (Basic vs All)** — curated `data/basic-exercises.json` (~80
   gym staples) + `is_basic` on `exercises` (migration `039`, cardio counts as basic). A
   profile toggle **"Basic exercises only"** (in `preferences`, default on) trims the picker's

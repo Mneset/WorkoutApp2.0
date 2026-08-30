@@ -54,7 +54,7 @@ module.exports = (sequelize, DataTypes) => {
         db.SessionLog.belongsTo(db.User, { foreignKey: 'userId' });
         db.SessionLog.hasMany(db.ExerciseLog, { foreignKey: 'sessionLogId', onDelete: 'CASCADE' });
         db.SessionLog.belongsTo(db.WorkoutPlan, { foreignKey: 'workoutPlanId'})
-        db.SessionLog.belongsTo(db.SessionTemplate, { foreignKey: 'sessionTemplateId' });
+        db.SessionLog.belongsTo(db.SessionTemplate, { foreignKey: 'sessionTemplateId', onDelete: 'SET NULL' });
     }
 
     return SessionLog;

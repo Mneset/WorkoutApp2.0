@@ -39,10 +39,13 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/new-session" element={<NewSessionPage />} />
+          <Route path="/new-session/edit/:id" element={<NewSessionPage />} />
           <Route path="/session-history" element={<HistoryPage />} />
           <Route path="/workout-plan" element={<PlansPage />} />
           <Route path="/workout-plan/create-plan" element={<CreatePlanPage />} />
+          <Route path="/workout-plan/edit-plan/:id" element={<CreatePlanPage />} />
           <Route path="/workout-plan/create-template" element={<CreateTemplatePage />} />
+          <Route path="/workout-plan/edit-template/:id" element={<CreateTemplatePage />} />
           <Route path="/one-rep-max" element={<OneRepMaxPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Routes>

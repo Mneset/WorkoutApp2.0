@@ -145,7 +145,7 @@ export default function HistoryPage() {
                     title="Edit session"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate('/new-session', { state: { sessionLogId: session.id, edit: true } });
+                      navigate(`/new-session/edit/${session.id}`, { state: { sessionLogId: session.id, edit: true } });
                     }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

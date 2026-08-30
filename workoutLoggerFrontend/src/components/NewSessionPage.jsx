@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { useUserProfile } from '../context/UserContext';
@@ -615,12 +615,13 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
 export default function NewSessionPage() {
   const { sessionStarted, sessionLogId } = useSession();
   const location = useLocation();
+  const { id: routeId } = useParams();
 
-  // A session id can arrive by navigation state — resuming an in-progress session or
-  // editing a finished one — which also survives when the in-memory context is empty
-  // (e.g. after a reload). Otherwise fall back to the just-started session in context.
-  const stateId = location.state?.sessionLogId ?? null;
-  const editMode = !!location.state?.edit;
+  // A session id can arrive by URL (editing a finished session — survives a reload) or by
+  // navigation state (the fast path). Otherwise fall back to the just-started session in
+  // context. The builder fetches the session by id, so the URL alone is enough to rehydrate.
+  const stateId = location.state?.sessionLogId ?? (routeId ? Number(routeId) : null);
+  const editMode = !!routeId || !!location.state?.edit;
   const activeId = stateId ?? (sessionStarted ? sessionLogId : null);
 
   if (!activeId) {
