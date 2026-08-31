@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../context/UserContext';
 import api from '../api';
@@ -318,7 +319,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
             </div>
           )}
           <div onClick={() => handleSelect(ex)} className="min-w-0 flex-1 cursor-pointer">
-            <div className="flex items-center gap-1.5 text-sm font-medium">
+            <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
               <span className="truncate">{ex.name}</span>
               {ex.createdBy && (
                 <span className="flex-shrink-0 rounded bg-clay-tint px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-clay">
@@ -398,13 +399,13 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
     );
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-100 grid place-items-center bg-[rgba(28,26,23,0.45)] p-6"
+      className="fixed inset-0 z-100 flex items-center justify-center bg-[rgba(28,26,23,0.45)] p-4"
       onClick={onClose}
     >
       <Card
-        className="flex max-h-[85vh] w-full max-w-lg flex-col p-6"
+        className="flex max-h-[85vh] w-full min-w-0 max-w-lg flex-col overflow-hidden p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -620,7 +621,8 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
           )}
         </div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }
 
