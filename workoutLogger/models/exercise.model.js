@@ -32,6 +32,13 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: false,
             field: 'is_basic'
+        },
+        // Owner of a user-created exercise (auth sub). NULL = library ("premade") exercise
+        // shown to everyone; otherwise the exercise is private to this user.
+        createdBy: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            field: 'created_by'
         }
     }, {
         tableName: 'exercises' 
@@ -45,6 +52,7 @@ module.exports = (sequelize, DataTypes) => {
         db.Exercise.belongsToMany(db.Equipment, { through: db.ExerciseEquipment, foreignKey: 'exerciseId' });
         db.Exercise.belongsToMany(db.TargetMuscle, { through: db.ExerciseTargetMuscle, foreignKey: 'exerciseId' });
         db.Exercise.hasMany(db.ExerciseTemplate, { foreignKey: 'exerciseId' });
+        db.Exercise.belongsTo(db.User, { foreignKey: 'createdBy' });
     }
     return Exercise;
 };

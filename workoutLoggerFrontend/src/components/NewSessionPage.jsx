@@ -588,6 +588,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       onDeleteExercise={deleteExercise}
       onReorder={applyExerciseOrder}
       onSetOneRepMax={handleSetOneRepMax}
+      onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
+      onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}
       prefs={prefs}
       footer={
         <>

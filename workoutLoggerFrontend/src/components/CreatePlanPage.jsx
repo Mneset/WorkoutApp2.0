@@ -779,6 +779,8 @@ export default function CreatePlanPage() {
           type={picker.type}
           onSelect={(ex) => addExerciseToTemplate(picker.templateTempId, ex)}
           onClose={() => setPicker(null)}
+          onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
+          onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}
         />
       )}
     </div>

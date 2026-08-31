@@ -313,6 +313,8 @@ export default function CreateTemplatePage() {
         onDeleteExercise={deleteExercise}
         onReorder={applyOrder}
         onSetWeightUnit={setWeightUnit}
+        onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
+        onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}
         footer={
           <>
             <Button variant="ghost" onClick={() => navigate('/workout-plan?view=templates')}>

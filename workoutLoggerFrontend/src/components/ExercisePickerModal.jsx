@@ -27,7 +27,7 @@ function StarIcon({ filled }) {
 }
 
 // `type` scopes the list: 'strength' (the default) or 'cardio' — each has its own picker.
-function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'strength' }) {
+function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'strength', onExerciseCreated, onExerciseDeleted }) {
   const { getToken } = useAuth();
   const { profile } = useUserProfile();
   // Basic-only hides the very specific variations (kept as a graceful default until the
@@ -40,6 +40,16 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
   const [view, setView] = useState('all'); // 'all' | 'favorites'
   const [expandedId, setExpandedId] = useState(null);
   const [details, setDetails] = useState({}); // id -> { instructions, images } | 'loading' | 'error'
+  // Create-your-own-exercise form.
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [primaryIds, setPrimaryIds] = useState(() => new Set());
+  const [secondaryIds, setSecondaryIds] = useState(() => new Set());
+  const [equipIds, setEquipIds] = useState(() => new Set());
+  const [newSteps, setNewSteps] = useState(['']); // ordered instruction steps
+  const [savingNew, setSavingNew] = useState(false);
+  const [createError, setCreateError] = useState(null);
+  const [taxonomy, setTaxonomy] = useState({ muscles: [], equipment: [] });
 
   useEffect(() => {
     document.body.classList.add('modal-open');
@@ -61,6 +71,23 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load the muscle/equipment taxonomy the first time the create form is opened.
+  useEffect(() => {
+    if (!creating || taxonomy.muscles.length || taxonomy.equipment.length) return;
+    const load = async () => {
+      try {
+        const headers = { Authorization: `Bearer ${await getToken()}` };
+        const res = await api.get('/exercise-log/taxonomy', { headers });
+        const d = res.data?.data?.result || {};
+        setTaxonomy({ muscles: d.muscles || [], equipment: d.equipment || [] });
+      } catch (err) {
+        console.error('Error loading taxonomy:', err);
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creating]);
 
   const toggleFavorite = async (exerciseId) => {
     const isFav = favoriteIds.has(exerciseId);
@@ -176,6 +203,95 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
     onClose();
   };
 
+  // Each muscle chip cycles: off → primary → secondary → off.
+  const cycleMuscle = (id) => {
+    if (primaryIds.has(id)) {
+      setPrimaryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setSecondaryIds((prev) => new Set(prev).add(id));
+    } else if (secondaryIds.has(id)) {
+      setSecondaryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } else {
+      setPrimaryIds((prev) => new Set(prev).add(id));
+    }
+  };
+
+  const toggleEquip = (id) =>
+    setEquipIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const updateStep = (i, val) => setNewSteps((prev) => prev.map((s, idx) => (idx === i ? val : s)));
+  const addStep = () => setNewSteps((prev) => [...prev, '']);
+  const removeStep = (i) => setNewSteps((prev) => (prev.length === 1 ? [''] : prev.filter((_, idx) => idx !== i)));
+
+  const resetCreateForm = () => {
+    setCreating(false);
+    setNewName('');
+    setPrimaryIds(new Set());
+    setSecondaryIds(new Set());
+    setEquipIds(new Set());
+    setNewSteps(['']);
+    setCreateError(null);
+  };
+
+  const handleCreate = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    setSavingNew(true);
+    setCreateError(null);
+    try {
+      const headers = { Authorization: `Bearer ${await getToken()}` };
+      const instructions = newSteps.map((s) => s.trim()).filter(Boolean);
+      const res = await api.post(
+        '/exercise-log/exercise',
+        {
+          name,
+          type,
+          primaryMuscleIds: [...primaryIds],
+          secondaryMuscleIds: [...secondaryIds],
+          equipmentIds: [...equipIds],
+          instructions,
+        },
+        { headers }
+      );
+      const created = res.data?.data?.result;
+      if (created) {
+        onExerciseCreated?.(created);
+        // Reset and select it straight away — you made it because you want to use it now.
+        resetCreateForm();
+        handleSelect(created);
+      }
+    } catch (err) {
+      console.error('Error creating exercise:', err);
+      setCreateError('Could not create the exercise. Try again.');
+    } finally {
+      setSavingNew(false);
+    }
+  };
+
+  const handleDeleteCustom = async (ex, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete your exercise "${ex.name}"? This can't be undone.`)) return;
+    try {
+      const headers = { Authorization: `Bearer ${await getToken()}` };
+      await api.delete(`/exercise-log/exercise/${ex.id}`, { headers });
+      onExerciseDeleted?.(ex.id);
+    } catch (err) {
+      console.error('Error deleting exercise:', err);
+    }
+  };
+
   const renderRow = (ex) => {
     const fav = favoriteIds.has(ex.id);
     const expanded = expandedId === ex.id;
@@ -202,7 +318,14 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
             </div>
           )}
           <div onClick={() => handleSelect(ex)} className="min-w-0 flex-1 cursor-pointer">
-            <div className="text-sm font-medium">{ex.name}</div>
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <span className="truncate">{ex.name}</span>
+              {ex.createdBy && (
+                <span className="flex-shrink-0 rounded bg-clay-tint px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-clay">
+                  Mine
+                </span>
+              )}
+            </div>
             {!isCardio && ex.TargetMuscles && ex.TargetMuscles.length > 0 && (
               <div className="mt-0.5 text-xs">
                 {[...ex.TargetMuscles]
@@ -223,6 +346,17 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
               </div>
             )}
           </div>
+          {ex.createdBy && (
+            <button
+              type="button"
+              aria-label="Delete exercise"
+              title="Delete exercise"
+              onClick={(e) => handleDeleteCustom(ex, e)}
+              className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-line-strong transition-colors hover:bg-surface-2 hover:text-danger"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+            </button>
+          )}
           <button
             type="button"
             aria-label="Show details"
@@ -323,6 +457,140 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
             </select>
           )}
         </div>
+
+        {!creating ? (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong py-2.5 text-sm font-semibold text-muted transition-colors hover:border-clay hover:text-clay"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+            Create new {isCardio ? 'cardio' : 'exercise'}
+          </button>
+        ) : (
+          <div className="mb-3 rounded-xl border border-line-strong bg-surface-2 p-3.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+              New {isCardio ? 'cardio' : 'exercise'} (only you can see it)
+            </div>
+            <input
+              type="text"
+              autoFocus
+              placeholder="Name (e.g. Cable Y-Raise)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              className={inputClass}
+            />
+            {!isCardio && taxonomy.muscles.length > 0 && (
+              <div className="mt-3">
+                <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
+                  <span>Target muscles (optional)</span>
+                  <span className="text-[10px]">tap: off → primary → secondary</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {taxonomy.muscles.map((m) => {
+                    const isP = primaryIds.has(m.id);
+                    const isS = secondaryIds.has(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => cycleMuscle(m.id)}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isP
+                            ? 'border-clay bg-clay text-white'
+                            : isS
+                            ? 'border-clay bg-clay-tint text-clay'
+                            : 'border-line text-muted hover:border-clay'
+                        }`}
+                      >
+                        {m.name}
+                        {isP && ' · primary'}
+                        {isS && ' · secondary'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {taxonomy.equipment.length > 0 && (
+              <div className="mt-3">
+                <div className="mb-1.5 text-xs text-muted">Equipment (optional)</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {taxonomy.equipment.map((eq) => (
+                    <button
+                      key={eq.id}
+                      type="button"
+                      onClick={() => toggleEquip(eq.id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        equipIds.has(eq.id)
+                          ? 'border-clay bg-clay-tint text-clay'
+                          : 'border-line text-muted hover:border-clay'
+                      }`}
+                    >
+                      {eq.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mt-3">
+              <div className="mb-1.5 text-xs text-muted">Instructions (optional)</div>
+              <div className="flex flex-col gap-1.5">
+                {newSteps.map((step, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-surface text-xs font-semibold text-muted">
+                      {i + 1}
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={`Step ${i + 1}`}
+                      value={step}
+                      onChange={(e) => updateStep(i, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && step.trim() && i === newSteps.length - 1) addStep();
+                      }}
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove step"
+                      onClick={() => removeStep(i)}
+                      className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-danger"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addStep}
+                className="mt-1.5 text-xs font-semibold text-clay hover:underline"
+              >
+                + Add step
+              </button>
+            </div>
+            {createError && <p className="mt-2 text-xs text-danger">{createError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={resetCreateForm}
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-muted hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={savingNew || !newName.trim()}
+                className="rounded-lg bg-clay px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-clay/90 disabled:opacity-50"
+              >
+                {savingNew ? 'Creating…' : 'Create & add'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="-mx-1 flex-1 overflow-y-auto px-1">
           {view === 'all' && favoritesList.length > 0 && (

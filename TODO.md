@@ -82,11 +82,30 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   scratch** (blank) or start from one of your **templates** (list of standalone templates).
   Side benefit: a blank session is only created on explicit "from scratch", so visiting New
   Session no longer auto-creates orphan blanks.
-- **Add custom exercise** — let the user create their own exercise (name + type +
-  optional target muscles/equipment) from the picker when what they want isn't in the
-  library, and have it appear in the list. Needs a create-exercise route/service and a
-  "+ Create new exercise" affordance in `ExercisePickerModal` (and to mark user-created
-  ones, likely a `created_by`/`user_id` column on `exercises`).
+- **Customizable dashboard cards** — let the user choose which cards/data show on the home
+  screen (e.g. toggles for each dashboard section: recent sessions, stats, active plan,
+  streak, etc.), so the dashboard can be tailored to what they care about. Store the choices
+  in `users.preferences` (like the logging-column toggles) and gate each `DashboardPage`
+  section on them; add the toggles to the Profile page.
+- [x] **Add custom exercise** — a "Create new exercise" affordance in `ExercisePickerModal`
+  (name + primary/secondary target muscles + equipment + numbered instruction steps; type
+  inherited from the picker) that POSTs to `/exercise-log/exercise`. Muscle chips cycle
+  off → primary → secondary (stored via `exercisetargetmuscles.is_primary`); equipment links
+  the `exerciseequipment` join; instructions save to the same `exercises.instructions` JSON
+  column and render as numbered steps in the detail view exactly like library exercises. The
+  form loads a `GET /exercise-log/taxonomy` (all muscles + equipment). Custom exercises are **owned by the user** (`created_by` FK on
+  `exercises`, migration `043`, NULL = library): `getAllExercises(userId)` returns library +
+  the user's own only, so one person's exercise never shows for another. Shown in both Basic
+  and All (created with `is_basic` true), tagged with a **"Mine"** badge, and deletable
+  (`DELETE /exercise-log/exercise/:id`, owner-checked). Creating one selects & adds it right
+  away. Needs migration `043` + a **backend restart** (new routes/service).
+- **User-owned plans & templates + public/private visibility** — tie every plan and
+  standalone template to its creating user (a `user_id`/`created_by` owner column, backfill
+  existing ones). Default library plans/templates stay owner-less ("premade"). Add a
+  **public/private** flag chosen when creating/editing a plan or template. Lists then show:
+  premade + the user's own always; other users' entries only if they're **public** *and* the
+  viewer has a Profile toggle **"Show community plans/templates"** turned on. Mirrors the
+  exercise ownership + Basic/All model below.
 - [x] **Filter/sort by primary movers** — `is_primary` flag on the `exercisetargetmuscles`
   join (migration `037`), backfilled from the free-exercise-db `primaryMuscles` split
   (bundled `data/exercise-primary-muscles.json`; seeder also sets it for fresh installs).

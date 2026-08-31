@@ -68,6 +68,8 @@ export default function SessionBuilderView({
   onReorder,
   onSetWeightUnit,
   onSetOneRepMax,
+  onExerciseCreated,
+  onExerciseDeleted,
   footer,
   // Template-building mode: reps is a free-text field (allows a range like "8-12") and
   // fields show generic placeholders instead of a prescribed target.
@@ -671,6 +673,8 @@ export default function SessionBuilderView({
           exercises={exercises}
           onClose={() => setPickerType(null)}
           onSelect={(exercise) => onAddExercise(exercise)}
+          onExerciseCreated={onExerciseCreated}
+          onExerciseDeleted={onExerciseDeleted}
         />
       )}
 

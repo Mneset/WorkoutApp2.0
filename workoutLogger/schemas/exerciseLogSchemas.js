@@ -36,4 +36,15 @@ const updateExerciseLogSchema = z.object({
     targetWeightPct: z.coerce.number().nonnegative().nullable().optional()
 });
 
-module.exports = { createExerciseLogSchema, updateExerciseLogSchema };
+// A user-created exercise: just a name + type, with optional primary target muscles.
+const createExerciseSchema = z.object({
+    name: z.string().trim().min(1, 'name is required').max(255),
+    type: z.enum(['strength', 'cardio']).optional(),
+    primaryMuscleIds: z.array(z.coerce.number().int().positive()).optional(),
+    secondaryMuscleIds: z.array(z.coerce.number().int().positive()).optional(),
+    equipmentIds: z.array(z.coerce.number().int().positive()).optional(),
+    // Ordered step-by-step instructions (one string per step).
+    instructions: z.array(z.string()).optional(),
+});
+
+module.exports = { createExerciseLogSchema, updateExerciseLogSchema, createExerciseSchema };
