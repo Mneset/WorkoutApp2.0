@@ -91,11 +91,10 @@ export default function CreateTemplatePage() {
         rows.push({
           id: makeId(),
           exerciseId: et.exerciseId,
-          exerciseName: et.Exercise?.name,
-          type: isCardio ? 'cardio' : 'strength',
           orderIndex: idx,
           notes: s.notes ?? '',
           weightUnit: et.weightUnit || 'kg',
+          Exercise: { name: et.Exercise?.name, type: et.Exercise?.type },
           ...(isCardio
             ? {
                 durationSeconds: s.durationSeconds ? formatDuration(s.durationSeconds) : '',
