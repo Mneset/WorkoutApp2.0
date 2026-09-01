@@ -27,6 +27,47 @@ function StarIcon({ filled }) {
   );
 }
 
+// Compact multi-select: a dropdown to add, with chosen items shown as small removable tags.
+function TagSelect({ label, placeholder, options, selectedIds, onAdd, onRemove }) {
+  const available = options.filter((o) => !selectedIds.has(o.id));
+  const selected = [...selectedIds].map((id) => options.find((o) => o.id === id)).filter(Boolean);
+  return (
+    <div className="mt-3">
+      <div className="mb-1.5 text-xs text-muted">{label}</div>
+      <select
+        value=""
+        onChange={(e) => {
+          if (e.target.value) onAdd(Number(e.target.value));
+        }}
+        className={inputClass}
+        disabled={available.length === 0}
+      >
+        <option value="">{available.length ? placeholder : 'All added'}</option>
+        {available.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+      {selected.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {selected.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onRemove(o.id)}
+              className="flex items-center gap-1 rounded-full border border-clay bg-clay-tint px-2.5 py-1 text-xs font-medium text-clay transition-colors hover:bg-clay hover:text-white"
+            >
+              {o.name}
+              <span aria-hidden="true">✕</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // `type` scopes the list: 'strength' (the default) or 'cardio' — each has its own picker.
 function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'strength', onExerciseCreated, onExerciseDeleted }) {
   const { getToken } = useAuth();
@@ -204,31 +245,11 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
     onClose();
   };
 
-  // Each muscle chip cycles: off → primary → secondary → off.
-  const cycleMuscle = (id) => {
-    if (primaryIds.has(id)) {
-      setPrimaryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      setSecondaryIds((prev) => new Set(prev).add(id));
-    } else if (secondaryIds.has(id)) {
-      setSecondaryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    } else {
-      setPrimaryIds((prev) => new Set(prev).add(id));
-    }
-  };
-
-  const toggleEquip = (id) =>
-    setEquipIds((prev) => {
+  const addTo = (setter) => (id) => setter((prev) => new Set(prev).add(id));
+  const removeFrom = (setter) => (id) =>
+    setter((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.delete(id);
       return next;
     });
 
@@ -483,57 +504,34 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
               className={inputClass}
             />
             {!isCardio && taxonomy.muscles.length > 0 && (
-              <div className="mt-3">
-                <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
-                  <span>Target muscles (optional)</span>
-                  <span className="text-[10px]">tap: off → primary → secondary</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {taxonomy.muscles.map((m) => {
-                    const isP = primaryIds.has(m.id);
-                    const isS = secondaryIds.has(m.id);
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => cycleMuscle(m.id)}
-                        className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                          isP
-                            ? 'border-clay bg-clay text-white'
-                            : isS
-                            ? 'border-clay bg-clay-tint text-clay'
-                            : 'border-line text-muted hover:border-clay'
-                        }`}
-                      >
-                        {m.name}
-                        {isP && ' · primary'}
-                        {isS && ' · secondary'}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <>
+                <TagSelect
+                  label="Primary muscles (optional)"
+                  placeholder="Add a primary mover…"
+                  options={taxonomy.muscles.filter((m) => !secondaryIds.has(m.id))}
+                  selectedIds={primaryIds}
+                  onAdd={addTo(setPrimaryIds)}
+                  onRemove={removeFrom(setPrimaryIds)}
+                />
+                <TagSelect
+                  label="Secondary muscles (optional)"
+                  placeholder="Add a secondary mover…"
+                  options={taxonomy.muscles.filter((m) => !primaryIds.has(m.id))}
+                  selectedIds={secondaryIds}
+                  onAdd={addTo(setSecondaryIds)}
+                  onRemove={removeFrom(setSecondaryIds)}
+                />
+              </>
             )}
             {taxonomy.equipment.length > 0 && (
-              <div className="mt-3">
-                <div className="mb-1.5 text-xs text-muted">Equipment (optional)</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {taxonomy.equipment.map((eq) => (
-                    <button
-                      key={eq.id}
-                      type="button"
-                      onClick={() => toggleEquip(eq.id)}
-                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        equipIds.has(eq.id)
-                          ? 'border-clay bg-clay-tint text-clay'
-                          : 'border-line text-muted hover:border-clay'
-                      }`}
-                    >
-                      {eq.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <TagSelect
+                label="Equipment (optional)"
+                placeholder="Add equipment…"
+                options={taxonomy.equipment}
+                selectedIds={equipIds}
+                onAdd={addTo(setEquipIds)}
+                onRemove={removeFrom(setEquipIds)}
+              />
             )}
             <div className="mt-3">
               <div className="mb-1.5 text-xs text-muted">Instructions (optional)</div>
