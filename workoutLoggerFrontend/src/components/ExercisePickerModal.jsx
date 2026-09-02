@@ -439,6 +439,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
           </button>
         </div>
 
+        {!creating && (
         <div className="mb-4 flex flex-col gap-3">
           <div className="flex rounded-xl border border-line-strong bg-surface-2 p-1">
             {[
@@ -479,6 +480,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
             </select>
           )}
         </div>
+        )}
 
         {!creating ? (
           <button
@@ -490,7 +492,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
             Create new {isCardio ? 'cardio' : 'exercise'}
           </button>
         ) : (
-          <div className="mb-3 rounded-xl border border-line-strong bg-surface-2 p-3.5">
+          <div className="mb-1 min-h-0 flex-1 overflow-y-auto rounded-xl border border-line-strong bg-surface-2 p-3.5">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
               New {isCardio ? 'cardio' : 'exercise'} (only you can see it)
             </div>
@@ -591,6 +593,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
           </div>
         )}
 
+        {!creating && (
         <div className="-mx-1 flex-1 overflow-y-auto px-1">
           {view === 'all' && favoritesList.length > 0 && (
             <div>
@@ -618,6 +621,7 @@ function ExercisePickerModal({ exercises = [], onSelect, onClose, type = 'streng
             <div className="py-8 text-center text-sm text-muted">No exercises found.</div>
           )}
         </div>
+        )}
       </Card>
     </div>,
     document.body
