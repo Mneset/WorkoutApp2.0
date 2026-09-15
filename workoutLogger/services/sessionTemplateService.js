@@ -55,11 +55,13 @@ class SessionTemplateService {
     }
 
     async updateTemplate(id, updateData) {
-        const affectedRows = await this.db.SessionTemplate.update(
-            updateData ,
-            { where: { id: id } }
-        );
-        return affectedRows[0];
+        // MySQL's UPDATE affectedRows counts *changed* rows, so saving an edit that only
+        // touched the template's exercises (not name/notes) would look like "not found".
+        // Check existence explicitly and return 1 whenever the template exists.
+        const template = await this.db.SessionTemplate.findByPk(id);
+        if (!template) return 0;
+        await this.db.SessionTemplate.update(updateData, { where: { id: id } });
+        return 1;
     }
 
     async getTemplateById(id) {

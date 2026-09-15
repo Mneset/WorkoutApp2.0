@@ -17,10 +17,13 @@ class WorkoutPlanService {
     }
 
     async updateWorkoutPlan(id, updateData) {
-       const affectedRows = await this.db.WorkoutPlan.update(updateData,
-            { where: { id: id } }
-        );
-        return affectedRows[0];
+        // Check existence explicitly: MySQL's UPDATE affectedRows counts *changed* rows, so
+        // saving an edit that only touched the plan's days (not name/description/weeks) would
+        // otherwise look like "not found". Return 1 whenever the plan exists.
+        const plan = await this.db.WorkoutPlan.findByPk(id);
+        if (!plan) return 0;
+        await this.db.WorkoutPlan.update(updateData, { where: { id: id } });
+        return 1;
     }
 
     // Exercises across a plan prescribed by % of 1RM that the user has no 1RM for yet.
