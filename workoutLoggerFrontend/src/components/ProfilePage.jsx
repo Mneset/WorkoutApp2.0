@@ -11,7 +11,7 @@ const inputClass =
 // Defaults when a user has no saved preferences yet.
 const DEFAULT_PREFS = {
   // Creating (plan/template builder) context
-  metricsEnabled: false, // off by default → builders start at reps & kg
+  metricsEnabled: true, // on → Weight/Time/1RM% mode toggle available in the builders
   showWeight: true,
   showTime: true,
   showPct: true,
@@ -24,7 +24,7 @@ const DEFAULT_PREFS = {
   logRir: true,
   logNotes: true,
   logLast: true,
-  logTime: false, // off → live logging stays reps & kg; on → Weight/Time toggle appears
+  logTime: true, // on → live logging gets a Weight/Time toggle
   basicExercisesOnly: true,
 };
 
@@ -107,8 +107,12 @@ export default function ProfilePage() {
   const save = async () => {
     setSaving(true);
     try {
+      // "Metric modes" on with no mode selected does nothing, so treat it as off.
+      const noModes = !prefs.showWeight && !prefs.showTime && !prefs.showPct;
+      const toSave = noModes ? { ...prefs, metricsEnabled: false } : prefs;
+      if (noModes && prefs.metricsEnabled) setPrefs(toSave);
       const headers = { Authorization: `Bearer ${await getToken()}` };
-      await api.put('/users/profile', { username: username.trim() || undefined, preferences: prefs }, { headers });
+      await api.put('/users/profile', { username: username.trim() || undefined, preferences: toSave }, { headers });
       await refreshProfile?.();
       setSaved(true);
     } catch (err) {

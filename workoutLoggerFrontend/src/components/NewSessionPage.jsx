@@ -188,9 +188,9 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     showRir: rawPrefs.logRir,
     showNotes: rawPrefs.logNotes,
     showLastTime: rawPrefs.logLast,
-    metricsEnabled: rawPrefs.logTime,
+    metricsEnabled: rawPrefs.logTime !== false,
     showWeight: true,
-    showTime: rawPrefs.logTime,
+    showTime: rawPrefs.logTime !== false,
     showPct: false,
   };
 

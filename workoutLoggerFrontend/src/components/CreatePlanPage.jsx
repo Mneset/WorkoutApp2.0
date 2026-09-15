@@ -31,7 +31,7 @@ export default function CreatePlanPage() {
   const prefs = profile?.preferences || null;
   // "Show while creating" prefs gate the plan builder's columns; the Metric modes master
   // gates the Weight/Time/1RM% toggle.
-  const metricsOn = !!prefs?.metricsEnabled;
+  const metricsOn = prefs?.metricsEnabled !== false;
   const colRpe = prefs?.showRpe !== false;
   const colRir = prefs?.showRir !== false;
   const navigate = useNavigate();

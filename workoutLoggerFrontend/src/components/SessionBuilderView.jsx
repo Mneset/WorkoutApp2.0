@@ -113,8 +113,8 @@ export default function SessionBuilderView({
         l.targetDurationSeconds != null ||
         l.targetDistance != null
     );
-  // "Track extra metrics" master gates the per-exercise Weight/Time/1RM% mode toggle only.
-  const metricsOn = !!prefs?.metricsEnabled;
+  // Metric-modes master gates the per-exercise Weight/Time/1RM% mode toggle (on by default).
+  const metricsOn = prefs?.metricsEnabled !== false;
   const colRpe = prefs?.showRpe !== false || fromProgram || hasValue('rpe');
   const colRir = prefs?.showRir !== false || fromProgram || hasValue('rir');
   const colNotes = prefs?.showNotes !== false || fromProgram || hasValue('notes');
