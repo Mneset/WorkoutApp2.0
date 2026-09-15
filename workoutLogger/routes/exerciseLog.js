@@ -90,6 +90,29 @@ router.delete('/exercise/:id', async (req, res) => {
     }
 });
 
+// "Last time" reference: the sets logged the previous time the user did each exercise.
+// Query: userId, exerciseIds (comma-separated), optional excludeSessionId (the current one).
+router.get('/last', async (req, res) => {
+    const userId = req.auth?.payload?.sub || req.query.userId;
+    if (!userId) return error(res, 'userId is required', 400);
+    const exerciseIds = String(req.query.exerciseIds || '')
+        .split(',')
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0);
+    if (exerciseIds.length === 0) return success(res, {});
+    try {
+        const map = await exerciseLogService.getLastPerformances(
+            userId,
+            exerciseIds,
+            req.query.excludeSessionId ? Number(req.query.excludeSessionId) : null
+        );
+        return success(res, map);
+    } catch (err) {
+        console.error('Error fetching last performances:', err);
+        return error(res, 'Failed to get last performances');
+    }
+});
+
 // Lazy-loaded instructions + image paths for one exercise (for the picker's detail view).
 router.get('/details/:id', async (req, res) => {
     try {

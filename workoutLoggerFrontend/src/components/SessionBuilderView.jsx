@@ -20,6 +20,15 @@ const numInputClass =
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
 
+// History/rewind glyph marking the per-set "previous session" reference row.
+const historyGlyph = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 3v5h5" />
+    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+    <path d="M12 8v4l3 2" />
+  </svg>
+);
+
 // Pen/paper glyph for the collapsed per-set note button.
 const penGlyph = (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -74,6 +83,7 @@ export default function SessionBuilderView({
   onCommitLog,
   onDeleteSet,
   onToggleComplete,
+  lastByExercise,
   onDeleteExercise,
   onReorder,
   onSetWeightUnit,
@@ -105,6 +115,8 @@ export default function SessionBuilderView({
   const colRpe = prefs?.showRpe !== false || fromProgram || hasValue('rpe');
   const colRir = prefs?.showRir !== false || fromProgram || hasValue('rir');
   const colNotes = prefs?.showNotes !== false || fromProgram || hasValue('notes');
+  // Per-set "last time" reference row (default on).
+  const colLast = prefs?.showLastTime !== false;
 
   // A prescribed target → placeholder text (or a dash when there's none).
   const ph = (v) => (v != null && v !== '' ? String(v) : '–');
@@ -116,6 +128,9 @@ export default function SessionBuilderView({
   const [noteOpen, setNoteOpen] = useState({}); // id -> true/false override
   const noteShown = (log) => noteOpen[log.id] ?? !!(log.notes && String(log.notes).length);
   const setNoteShown = (log, open) => setNoteOpen((prev) => ({ ...prev, [log.id]: open }));
+
+  // The set logged at this position the previous time (for the aligned "last time" hint row).
+  const lastSetFor = (exerciseId, index) => lastByExercise?.[exerciseId]?.sets?.[index] || null;
   const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
   const [oneRmCalc, setOneRmCalc] = useState(null); // { exerciseId, exerciseName } | null
   const [detailsFor, setDetailsFor] = useState(null); // exerciseId with details open
@@ -298,10 +313,15 @@ export default function SessionBuilderView({
         {/* Exercises */}
         {groupedLogs.length > 0 && (
           <>
-            {/* RPE/RIR legend — mobile only (the header tooltips are hover-only) */}
-            <p className="mt-4 text-center text-[11px] text-muted sm:hidden">
-              RPE = perceived exertion (1–10) · RIR = reps in reserve
-            </p>
+            {/* RPE/RIR legend — mobile only (the header tooltips are hover-only); only for
+                the columns actually shown. */}
+            {(colRpe || colRir) && (
+              <p className="mt-4 text-center text-[11px] text-muted sm:hidden">
+                {[colRpe && 'RPE = perceived exertion (1–10)', colRir && 'RIR = reps in reserve']
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            )}
             <SortableColumn
               items={groupedLogs.map(([name]) => name)}
               onReorder={onReorder}
@@ -323,8 +343,7 @@ export default function SessionBuilderView({
                   '1fr',
                   ...(colRpe ? [narrow ? '1fr' : '72px'] : []),
                   ...(showThird ? [narrow ? '1fr' : '72px'] : []),
-                  ...(narrow && colNotes ? ['34px'] : []),
-                  ...(!narrow && colNotes ? ['1.2fr'] : []),
+                  ...(colNotes ? ['34px'] : []),
                   ...(desktopDelete ? ['34px'] : []),
                 ].join(' ');
                 return (
@@ -460,8 +479,7 @@ export default function SessionBuilderView({
                                       RIR
                                     </span>
                                   ))}
-                                {narrow && colNotes && <span />}
-                                {!narrow && colNotes && <span>Notes</span>}
+                                {colNotes && <span />}
                                 {desktopDelete && <span />}
                               </div>
 
@@ -643,55 +661,10 @@ export default function SessionBuilderView({
                                           }}
                                         />
                                       ))}
-                                    {/* Notes — its own column on desktop; collapsed behind a
-                                        pen button until wanted. */}
-                                    {!narrow && colNotes &&
-                                      (noteShown(log) ? (
-                                        <div className="flex min-w-0 items-center gap-1">
-                                          <input
-                                            type="text"
-                                            placeholder="Notes"
-                                            autoFocus={noteOpen[log.id] === true}
-                                            className={`${inputClass} min-w-0 flex-1`}
-                                            value={log.notes || ''}
-                                            onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
-                                            onBlur={() => commit(log)}
-                                          />
-                                          <button
-                                            type="button"
-                                            title="Close note"
-                                            aria-label="Close note"
-                                            onClick={() => setNoteShown(log, false)}
-                                            className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
-                                          >
-                                            ✕
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          title="Add note"
-                                          aria-label="Add note"
-                                          onClick={() => setNoteShown(log, true)}
-                                          className="grid h-9 w-9 place-items-center justify-self-start rounded-lg border border-line-strong text-muted transition-colors hover:border-clay hover:text-clay"
-                                        >
-                                          {penGlyph}
-                                        </button>
-                                      ))}
-                                    {/* Delete — trailing column on desktop; mobile uses swipe. */}
-                                    {desktopDelete && (
-                                      <button
-                                        type="button"
-                                        title="Delete set"
-                                        onClick={() => onDeleteSet(log)}
-                                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                                      >
-                                        ✕
-                                      </button>
-                                    )}
-                                    {/* Notes toggle — inline pen on the right of the row (mobile);
-                                        the box drops onto its own line below when opened. */}
-                                    {narrow && colNotes && (
+                                    {/* Notes toggle — a small pen in its own narrow column
+                                        (desktop & mobile); the box drops onto its own full-width
+                                        line below when opened. */}
+                                    {colNotes && (
                                       <button
                                         type="button"
                                         title={noteShown(log) ? 'Hide note' : 'Add note'}
@@ -706,7 +679,66 @@ export default function SessionBuilderView({
                                         {penGlyph}
                                       </button>
                                     )}
-                                    {narrow && colNotes && noteShown(log) && (
+                                    {/* Delete — trailing column on desktop; mobile uses swipe. */}
+                                    {desktopDelete && (
+                                      <button
+                                        type="button"
+                                        title="Delete set"
+                                        onClick={() => onDeleteSet(log)}
+                                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+                                    {/* "Last time" reference for this set, aligned under the
+                                        Reps/Kg (or Time/Distance) inputs. */}
+                                    {!templateMode &&
+                                      colLast &&
+                                      (() => {
+                                        const ls = lastSetFor(log.exerciseId, index);
+                                        if (!ls) return null;
+                                        const c1 = isCardio
+                                          ? ls.durationSeconds
+                                            ? formatDuration(ls.durationSeconds)
+                                            : ''
+                                          : ls.reps != null && ls.reps !== ''
+                                          ? String(ls.reps)
+                                          : '';
+                                        const c2 = isCardio
+                                          ? ls.distance != null && ls.distance !== ''
+                                            ? `${ls.distance} km`
+                                            : ''
+                                          : ls.weight != null && Number(ls.weight) > 0
+                                          ? `${ls.weight} kg`
+                                          : '';
+                                        if (!c1 && !c2) return null;
+                                        const rpeVal =
+                                          ls.rpe != null && ls.rpe !== '' ? String(ls.rpe) : '–';
+                                        const rirVal =
+                                          !isCardio && ls.rir != null && ls.rir !== '' ? String(ls.rir) : '–';
+                                        return (
+                                          <div
+                                            style={{ gridColumn: '1 / -1', gridTemplateColumns: gridCols }}
+                                            className="mt-1 grid items-center gap-1.5 sm:gap-2"
+                                            title="Last time"
+                                          >
+                                            <div className="flex justify-center text-muted" aria-label="Last time">
+                                              {historyGlyph}
+                                            </div>
+                                            {[c1 || '–', c2 || '–', ...(colRpe ? [rpeVal] : []), ...(showThird ? [isCardio ? '' : rirVal] : [])].map(
+                                              (v, ci) => (
+                                                <div
+                                                  key={ci}
+                                                  className="truncate rounded-md border border-dashed border-line-strong bg-surface-2 px-1 py-1 text-center text-xs font-semibold text-clay-ink"
+                                                >
+                                                  {v || ' '}
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    {colNotes && noteShown(log) && (
                                       <div style={{ gridColumn: '1 / -1' }} className="mt-1.5 flex items-center gap-1.5">
                                         <input
                                           type="text"

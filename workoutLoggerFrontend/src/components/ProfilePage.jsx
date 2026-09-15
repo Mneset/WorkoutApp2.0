@@ -9,12 +9,19 @@ const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
 // Defaults when a user has no saved preferences yet.
-const DEFAULT_PREFS = { showRpe: true, showRir: true, showNotes: true, basicExercisesOnly: true };
+const DEFAULT_PREFS = {
+  showRpe: true,
+  showRir: true,
+  showNotes: true,
+  showLastTime: true,
+  basicExercisesOnly: true,
+};
 
 const TOGGLES = [
   { key: 'showRpe', label: 'RPE', hint: 'Rate of perceived exertion column' },
   { key: 'showRir', label: 'RIR', hint: 'Reps in reserve column' },
   { key: 'showNotes', label: 'Notes', hint: 'Per-set notes column' },
+  { key: 'showLastTime', label: 'Last time', hint: 'Previous-session reference under each set' },
 ];
 
 function Toggle({ on, onChange }) {

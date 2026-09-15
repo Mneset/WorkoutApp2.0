@@ -45,10 +45,12 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   individually**, with the builder **paginated per week**, so each session can differ
   week-to-week (e.g. powerlifter varying 1RM-% targets across weeks/sessions). Likely a
   data-model change (weeks × sessions); keep "repeat one week" as the default mode.
-- [ ] **Show "last time" for each exercise while logging** — when performing an exercise,
-  display what was done last time (previous session's sets: reps × weight, RPE/RIR) as a
-  reference to progress off. Needs a "most recent prior log for this exercise+user" lookup
-  and a compact per-set display in the session builder.
+- [x] **Show "last time" for each exercise while logging** — each exercise header now shows a
+  compact "Last: 8×60, 8×60, 7×62.5 kg" line from the previous *finished* session that logged
+  it. New `GET /exercise-log/last?exerciseIds=&excludeSessionId=` → `getLastPerformances`
+  (per exercise: most recent finished session's sets, current session excluded). Fetched on
+  session load and when an exercise is added. Cardio shows time/distance. **Needs backend
+  restart** (new route).
 - [x] **"Complete" / check-off sets in the session log** — the set-number badge is now a
   toggle while logging: tap it to mark the set done (fills clay with a ✓) and it persists.
   Backed by a `completed` boolean on `exerciselog` (migration `044`), threaded through the

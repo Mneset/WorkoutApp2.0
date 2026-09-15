@@ -60,11 +60,13 @@ export default function ScoreSelect({ value, options, onChange }) {
   const display = selected === '' ? '–' : selected;
   const highToLow = [...options].reverse();
 
-  // Touch: native <select> → OS picker.
+  // Touch: native <select> → OS picker. `appearance-none` removes the native dropdown arrow,
+  // which otherwise overlaps the centered number when the column is narrow (e.g. on mobile
+  // with the Notes column enabled). Tapping still opens the OS picker.
   if (coarse) {
     return (
       <select
-        className="w-full rounded-lg border border-line-strong bg-surface px-2 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint"
+        className="w-full appearance-none rounded-lg border border-line-strong bg-surface px-1 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint"
         value={selected}
         onChange={(e) => onChange(e.target.value)}
       >

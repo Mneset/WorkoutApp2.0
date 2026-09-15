@@ -175,6 +175,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const [editTableLogs, setEditTableLogs] = useState([]);
   const [sessionName, setSessionName] = useState('');
   const [sessionNotes, setSessionNotes] = useState('');
+  const [lastByExercise, setLastByExercise] = useState({}); // exerciseId -> { date, sets }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -223,13 +224,15 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       setSession(response.data.data.result);
+      const logs = response.data.data.result.ExerciseLogs || [];
       // Cardio durations are stored as seconds; show them as "mm:ss" in the inputs.
       setEditTableLogs(
-        (response.data.data.result.ExerciseLogs || []).map((l) => ({
+        logs.map((l) => ({
           ...l,
           durationSeconds: formatDuration(l.durationSeconds),
         }))
       );
+      loadLastPerformances(logs.map((l) => l.exerciseId));
     } catch (err) {
       console.error('Error getting current session:', err);
       if (editMode) {
@@ -274,6 +277,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       };
 
       setEditTableLogs((prevLogs) => [...prevLogs, logEntry]);
+      loadLastPerformances([exercise.id]);
     } catch (err) {
       alert('Failed to add exercise. Please try again.');
       console.error('Error adding exercise to session:', err);
@@ -311,6 +315,23 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       });
     } catch (err) {
       console.error('Failed to save:', err);
+    }
+  };
+
+  // Fetch "last time" sets for the given exercises and merge into state. The backend reads
+  // the user from the token; we just pass the ids and exclude the current session.
+  const loadLastPerformances = async (exerciseIds) => {
+    const ids = [...new Set((exerciseIds || []).filter(Boolean))];
+    if (ids.length === 0) return;
+    try {
+      const accessToken = await getToken();
+      const res = await api.get('/exercise-log/last', {
+        params: { exerciseIds: ids.join(','), excludeSessionId: sessionLogId },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setLastByExercise((prev) => ({ ...prev, ...(res.data?.data?.result || {}) }));
+    } catch (err) {
+      console.error('Failed to load last performances:', err);
     }
   };
 
@@ -615,6 +636,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       onReorder={applyExerciseOrder}
       onSetOneRepMax={handleSetOneRepMax}
       onToggleComplete={toggleCompleted}
+      lastByExercise={lastByExercise}
       onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
       onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}
       prefs={prefs}
