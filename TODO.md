@@ -2,6 +2,12 @@
 
 Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardio type).
 
+## Next up (priority order)
+
+1. **Variable-size supersets** (A1–A2, B1–B2–B3) — see Backlog.
+2. **Per-week / per-session periodization** — see Backlog.
+3. **"Log by time by default" on custom exercises** — small, deprioritized behind the two above.
+
 ## Gym feedback (in-use) — captured during live workouts, not yet triaged
 
 - [x] **Session & exercise notes sometimes disappear** when going in and out of a workout —

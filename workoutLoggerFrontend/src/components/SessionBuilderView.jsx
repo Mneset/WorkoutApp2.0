@@ -341,15 +341,19 @@ export default function SessionBuilderView({
                 // on mobile Notes drops to its own full-width line and delete is via swipe.
                 const showThird = isCardio || (colRir && !timed);
                 const desktopDelete = !coarse;
+                // Data columns only — the action buttons (note/delete/complete) now live in a
+                // separate right-hand column outside the grid, so the "last time" row never
+                // leaves blank cells under them.
                 const gridCols = [
                   narrow ? '30px' : '34px',
                   '1fr',
                   '1fr',
                   ...(colRpe ? [narrow ? '1fr' : '72px'] : []),
                   ...(showThird ? [narrow ? '1fr' : '72px'] : []),
-                  ...(colNotes ? ['34px'] : []),
-                  ...(desktopDelete ? ['34px'] : []),
                 ].join(' ');
+                // Right-hand action column width, so the header lines up with the set rows.
+                const actionCount = (colNotes ? 1 : 0) + (desktopDelete ? 1 : 0) + (onToggleComplete ? 1 : 0);
+                const actionsWidth = actionCount ? `${actionCount * 32 + (actionCount - 1) * 6}px` : '0px';
                 return (
                   <SortableRow key={exerciseName} id={exerciseName}>
                     {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
@@ -477,9 +481,10 @@ export default function SessionBuilderView({
                           {!isSorting && (
                             <>
                               {/* Table header */}
+                              <div className="flex items-center gap-2 border-b border-line pb-2">
                               <div
                                 style={{ gridTemplateColumns: gridCols }}
-                                className="grid gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:gap-2"
+                                className="grid min-w-0 flex-1 gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:gap-2"
                               >
                                 <span>Set</span>
                                 {timed ? (
@@ -509,8 +514,10 @@ export default function SessionBuilderView({
                                       RIR
                                     </span>
                                   ))}
-                                {colNotes && <span />}
-                                {desktopDelete && <span />}
+                              </div>
+                              {actionsWidth !== '0px' && (
+                                <div className="flex-shrink-0" style={{ width: actionsWidth }} />
+                              )}
                               </div>
 
                               {/* Set rows */}
@@ -521,35 +528,25 @@ export default function SessionBuilderView({
                                   onDelete={() => onDeleteSet(log)}
                                 >
                                   <div
+                                    className={`flex items-center gap-2 ${index > 0 ? 'border-t border-line' : ''} ${
+                                      log.completed ? 'rounded-md bg-clay-tint px-1 ring-1 ring-inset ring-clay-tintborder' : ''
+                                    }`}
+                                  >
+                                  <div className="min-w-0 flex-1">
+                                  <div
                                     style={{ gridTemplateColumns: gridCols }}
                                     className={`grid items-center gap-1.5 py-3 sm:gap-2 ${
                                       anyPct ? 'pb-7' : ''
-                                    } ${index > 0 ? 'border-t border-line' : ''}`}
+                                    }`}
                                   >
-                                    <div className="flex items-center">
-                                      {onToggleComplete ? (
-                                        <button
-                                          type="button"
-                                          title={log.completed ? 'Mark set not done' : 'Mark set done'}
-                                          aria-label={log.completed ? 'Mark set not done' : 'Mark set done'}
-                                          onClick={() => onToggleComplete(log)}
-                                          className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold transition-colors ${
-                                            log.completed
-                                              ? 'bg-clay text-white'
-                                              : 'bg-clay-tint text-clay hover:ring-2 hover:ring-clay/30'
-                                          }`}
-                                        >
-                                          {log.completed ? (
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
-                                          ) : (
-                                            index + 1
-                                          )}
-                                        </button>
-                                      ) : (
-                                        <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
-                                          {index + 1}
-                                        </span>
-                                      )}
+                                    <div className="flex items-center justify-center">
+                                      <span
+                                        className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold ${
+                                          log.completed ? 'bg-clay text-white' : 'bg-clay-tint text-clay'
+                                        }`}
+                                      >
+                                        {index + 1}
+                                      </span>
                                     </div>
                                     {timed ? (
                                       <input
@@ -703,35 +700,6 @@ export default function SessionBuilderView({
                                           }}
                                         />
                                       ))}
-                                    {/* Notes toggle — a small pen in its own narrow column
-                                        (desktop & mobile); the box drops onto its own full-width
-                                        line below when opened. */}
-                                    {colNotes && (
-                                      <button
-                                        type="button"
-                                        title={noteShown(log) ? 'Hide note' : 'Add note'}
-                                        aria-label={noteShown(log) ? 'Hide note' : 'Add note'}
-                                        onClick={() => setNoteShown(log, !noteShown(log))}
-                                        className={`grid h-8 w-8 place-items-center justify-self-center rounded-lg border transition-colors ${
-                                          noteShown(log)
-                                            ? 'border-clay bg-clay-tint text-clay'
-                                            : 'border-line-strong text-muted hover:border-clay hover:text-clay'
-                                        }`}
-                                      >
-                                        {penGlyph}
-                                      </button>
-                                    )}
-                                    {/* Delete — trailing column on desktop; mobile uses swipe. */}
-                                    {desktopDelete && (
-                                      <button
-                                        type="button"
-                                        title="Delete set"
-                                        onClick={() => onDeleteSet(log)}
-                                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                                      >
-                                        ✕
-                                      </button>
-                                    )}
                                     {/* "Last time" reference for this set, aligned under the
                                         Reps/Kg (or Time/Distance) inputs. */}
                                     {!templateMode &&
@@ -773,38 +741,83 @@ export default function SessionBuilderView({
                                               {historyGlyph}
                                             </div>
                                             <div className={boxClass} style={timed ? { gridColumn: 'span 2' } : undefined}>
-                                              {c1 || ' '}
+                                              {c1 || '–'}
                                             </div>
-                                            {!timed && <div className={boxClass}>{c2 || ' '}</div>}
+                                            {!timed && <div className={boxClass}>{c2 || '–'}</div>}
                                             {colRpe && <div className={boxClass}>{rpeVal}</div>}
                                             {showThird && (
-                                              <div className={boxClass}>{isCardio ? ' ' : rirVal}</div>
+                                              <div className={boxClass}>{isCardio ? '–' : rirVal}</div>
                                             )}
                                           </div>
                                         );
                                       })()}
-                                    {colNotes && noteShown(log) && (
-                                      <div style={{ gridColumn: '1 / -1' }} className="mt-1.5 flex items-center gap-1.5">
-                                        <input
-                                          type="text"
-                                          placeholder="Notes"
-                                          autoFocus={noteOpen[log.id] === true}
-                                          className={`${inputClass} min-w-0 flex-1`}
-                                          value={log.notes || ''}
-                                          onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
-                                          onBlur={() => commit(log)}
-                                        />
+                                  </div>
+                                  {colNotes && noteShown(log) && (
+                                    <div
+                                      style={{ gridTemplateColumns: gridCols }}
+                                      className="grid items-center gap-1.5 pb-3 sm:gap-2"
+                                    >
+                                      <div className="flex items-center justify-center text-muted" aria-hidden="true">
+                                        {penGlyph}
+                                      </div>
+                                      <input
+                                        type="text"
+                                        placeholder="Notes"
+                                        autoFocus={noteOpen[log.id] === true}
+                                        style={{ gridColumn: '2 / -1' }}
+                                        className={`${inputClass} min-w-0`}
+                                        value={log.notes || ''}
+                                        onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
+                                        onBlur={() => commit(log)}
+                                      />
+                                    </div>
+                                  )}
+                                  </div>
+                                  {actionsWidth !== '0px' && (
+                                    <div className="flex flex-shrink-0 items-center gap-1.5">
+                                      {colNotes && (
                                         <button
                                           type="button"
-                                          title="Close note"
-                                          aria-label="Close note"
-                                          onClick={() => setNoteShown(log, false)}
-                                          className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                                          title={noteShown(log) ? 'Hide note' : 'Add note'}
+                                          aria-label={noteShown(log) ? 'Hide note' : 'Add note'}
+                                          onClick={() => setNoteShown(log, !noteShown(log))}
+                                          className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${
+                                            noteShown(log)
+                                              ? 'border-clay bg-clay-tint text-clay'
+                                              : 'border-line-strong text-muted hover:border-clay hover:text-clay'
+                                          }`}
+                                        >
+                                          {penGlyph}
+                                        </button>
+                                      )}
+                                      {desktopDelete && (
+                                        <button
+                                          type="button"
+                                          title="Delete set"
+                                          onClick={() => onDeleteSet(log)}
+                                          className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
                                         >
                                           ✕
                                         </button>
-                                      </div>
-                                    )}
+                                      )}
+                                      {onToggleComplete && (
+                                        <button
+                                          type="button"
+                                          title={log.completed ? 'Mark set not done' : 'Mark set done'}
+                                          aria-label={log.completed ? 'Mark set not done' : 'Mark set done'}
+                                          aria-pressed={!!log.completed}
+                                          onClick={() => onToggleComplete(log)}
+                                          className={`grid h-8 w-8 place-items-center rounded-full border-2 transition-colors ${
+                                            log.completed
+                                              ? 'border-clay bg-clay text-white'
+                                              : 'border-line-strong text-line-strong hover:border-clay hover:text-clay'
+                                          }`}
+                                        >
+                                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                   </div>
                                 </SwipeToDelete>
                               ))}
