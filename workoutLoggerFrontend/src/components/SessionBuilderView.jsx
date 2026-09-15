@@ -20,6 +20,14 @@ const numInputClass =
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
 
+// Pen/paper glyph for the collapsed per-set note button.
+const penGlyph = (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
 // RPE: 1–10 in 0.5 steps. RIR: 1–10 in whole steps. Both optional (blank = not set).
 const RPE_OPTIONS = Array.from({ length: 19 }, (_, i) => 1 + i * 0.5);
 const RIR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
@@ -65,6 +73,7 @@ export default function SessionBuilderView({
   onUpdateLog,
   onCommitLog,
   onDeleteSet,
+  onToggleComplete,
   onDeleteExercise,
   onReorder,
   onSetWeightUnit,
@@ -101,6 +110,12 @@ export default function SessionBuilderView({
   const ph = (v) => (v != null && v !== '' ? String(v) : '–');
   const [editingName, setEditingName] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  // Per-set notes are collapsed behind a pen button until wanted. A set whose note already
+  // has text shows open by default; an explicit open/close override wins (so you can X it
+  // closed again even when it holds text).
+  const [noteOpen, setNoteOpen] = useState({}); // id -> true/false override
+  const noteShown = (log) => noteOpen[log.id] ?? !!(log.notes && String(log.notes).length);
+  const setNoteShown = (log, open) => setNoteOpen((prev) => ({ ...prev, [log.id]: open }));
   const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
   const [oneRmCalc, setOneRmCalc] = useState(null); // { exerciseId, exerciseName } | null
   const [detailsFor, setDetailsFor] = useState(null); // exerciseId with details open
@@ -308,6 +323,7 @@ export default function SessionBuilderView({
                   '1fr',
                   ...(colRpe ? [narrow ? '1fr' : '72px'] : []),
                   ...(showThird ? [narrow ? '1fr' : '72px'] : []),
+                  ...(narrow && colNotes ? ['34px'] : []),
                   ...(!narrow && colNotes ? ['1.2fr'] : []),
                   ...(desktopDelete ? ['34px'] : []),
                 ].join(' ');
@@ -444,6 +460,7 @@ export default function SessionBuilderView({
                                       RIR
                                     </span>
                                   ))}
+                                {narrow && colNotes && <span />}
                                 {!narrow && colNotes && <span>Notes</span>}
                                 {desktopDelete && <span />}
                               </div>
@@ -462,9 +479,29 @@ export default function SessionBuilderView({
                                     } ${index > 0 ? 'border-t border-line' : ''}`}
                                   >
                                     <div className="flex items-center">
-                                      <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
-                                        {index + 1}
-                                      </span>
+                                      {onToggleComplete ? (
+                                        <button
+                                          type="button"
+                                          title={log.completed ? 'Mark set not done' : 'Mark set done'}
+                                          aria-label={log.completed ? 'Mark set not done' : 'Mark set done'}
+                                          onClick={() => onToggleComplete(log)}
+                                          className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold transition-colors ${
+                                            log.completed
+                                              ? 'bg-clay text-white'
+                                              : 'bg-clay-tint text-clay hover:ring-2 hover:ring-clay/30'
+                                          }`}
+                                        >
+                                          {log.completed ? (
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+                                          ) : (
+                                            index + 1
+                                          )}
+                                        </button>
+                                      ) : (
+                                        <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
+                                          {index + 1}
+                                        </span>
+                                      )}
                                     </div>
                                     {isCardio ? (
                                       <input
@@ -606,17 +643,41 @@ export default function SessionBuilderView({
                                           }}
                                         />
                                       ))}
-                                    {/* Notes — its own column on desktop. */}
-                                    {!narrow && colNotes && (
-                                      <input
-                                        type="text"
-                                        placeholder="Notes"
-                                        className={`${inputClass} min-w-0`}
-                                        value={log.notes || ''}
-                                        onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
-                                        onBlur={() => commit(log)}
-                                      />
-                                    )}
+                                    {/* Notes — its own column on desktop; collapsed behind a
+                                        pen button until wanted. */}
+                                    {!narrow && colNotes &&
+                                      (noteShown(log) ? (
+                                        <div className="flex min-w-0 items-center gap-1">
+                                          <input
+                                            type="text"
+                                            placeholder="Notes"
+                                            autoFocus={noteOpen[log.id] === true}
+                                            className={`${inputClass} min-w-0 flex-1`}
+                                            value={log.notes || ''}
+                                            onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
+                                            onBlur={() => commit(log)}
+                                          />
+                                          <button
+                                            type="button"
+                                            title="Close note"
+                                            aria-label="Close note"
+                                            onClick={() => setNoteShown(log, false)}
+                                            className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          title="Add note"
+                                          aria-label="Add note"
+                                          onClick={() => setNoteShown(log, true)}
+                                          className="grid h-9 w-9 place-items-center justify-self-start rounded-lg border border-line-strong text-muted transition-colors hover:border-clay hover:text-clay"
+                                        >
+                                          {penGlyph}
+                                        </button>
+                                      ))}
                                     {/* Delete — trailing column on desktop; mobile uses swipe. */}
                                     {desktopDelete && (
                                       <button
@@ -628,17 +689,44 @@ export default function SessionBuilderView({
                                         ✕
                                       </button>
                                     )}
-                                    {/* Notes — full-width line on mobile. */}
+                                    {/* Notes toggle — inline pen on the right of the row (mobile);
+                                        the box drops onto its own line below when opened. */}
                                     {narrow && colNotes && (
-                                      <input
-                                        type="text"
-                                        placeholder="Notes"
-                                        style={{ gridColumn: '1 / -1' }}
-                                        className={`${inputClass} mt-1.5 min-w-0`}
-                                        value={log.notes || ''}
-                                        onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
-                                        onBlur={() => commit(log)}
-                                      />
+                                      <button
+                                        type="button"
+                                        title={noteShown(log) ? 'Hide note' : 'Add note'}
+                                        aria-label={noteShown(log) ? 'Hide note' : 'Add note'}
+                                        onClick={() => setNoteShown(log, !noteShown(log))}
+                                        className={`grid h-8 w-8 place-items-center justify-self-center rounded-lg border transition-colors ${
+                                          noteShown(log)
+                                            ? 'border-clay bg-clay-tint text-clay'
+                                            : 'border-line-strong text-muted hover:border-clay hover:text-clay'
+                                        }`}
+                                      >
+                                        {penGlyph}
+                                      </button>
+                                    )}
+                                    {narrow && colNotes && noteShown(log) && (
+                                      <div style={{ gridColumn: '1 / -1' }} className="mt-1.5 flex items-center gap-1.5">
+                                        <input
+                                          type="text"
+                                          placeholder="Notes"
+                                          autoFocus={noteOpen[log.id] === true}
+                                          className={`${inputClass} min-w-0 flex-1`}
+                                          value={log.notes || ''}
+                                          onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
+                                          onBlur={() => commit(log)}
+                                        />
+                                        <button
+                                          type="button"
+                                          title="Close note"
+                                          aria-label="Close note"
+                                          onClick={() => setNoteShown(log, false)}
+                                          className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-danger"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 </SwipeToDelete>

@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../context/UserContext';
+import { useSession } from '../context/SessionContext';
 
 const linkClass = ({ isActive }) =>
   `px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -43,6 +44,8 @@ const icons = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  // Play triangle — shown on the center button while a session is in progress.
+  resume: <path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none" />,
   plans: (
     <>
       <rect x="4" y="3" width="16" height="18" rx="2" />
@@ -81,6 +84,7 @@ function BottomTab({ to, end, label, glyph }) {
 export default function Navbar() {
   const { user, loginWithRedirect, isAuthenticated } = useAuth();
   const { profile } = useUserProfile();
+  const { sessionStarted } = useSession();
   const displayName = profile?.username || user?.nickname || user?.name || 'Profile';
 
   const initials = (profile?.username || user?.nickname || user?.name || user?.email || '?')
@@ -144,7 +148,7 @@ export default function Navbar() {
             <BottomTab to="/" end label="Home" glyph={icons.home} />
             <BottomTab to="/session-history" label="History" glyph={icons.history} />
 
-            {/* Raised center — New Session */}
+            {/* Raised center — New Session, or Resume while a workout is in progress */}
             <NavLink to="/new-session" className="flex flex-1 flex-col items-center">
               {({ isActive }) => (
                 <>
@@ -153,9 +157,11 @@ export default function Navbar() {
                       isActive ? 'bg-clay-hover' : 'bg-clay'
                     }`}
                   >
-                    <Icon>{icons.plus}</Icon>
+                    <Icon>{sessionStarted ? icons.resume : icons.plus}</Icon>
                   </span>
-                  <span className={`mt-0.5 text-[10px] font-medium ${isActive ? 'text-clay' : 'text-muted'}`}>New</span>
+                  <span className={`mt-0.5 text-[10px] font-medium ${isActive ? 'text-clay' : 'text-muted'}`}>
+                    {sessionStarted ? 'Resume' : 'New'}
+                  </span>
                 </>
               )}
             </NavLink>

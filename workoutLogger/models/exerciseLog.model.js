@@ -83,6 +83,12 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: false,
             field: 'session_log_id'
+        },
+        // Whether the lifter has ticked this set off as done during the session.
+        completed: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
         }
     }, {
         tableName: 'exerciselog'

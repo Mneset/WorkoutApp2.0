@@ -9,13 +9,15 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   lost it. Added `PATCH /session/:id` (`updateSessionInfo`, updates notes/name without
   ending the session) and a save-on-blur for the session note + name. Per-set/exercise
   notes already committed on blur. **Needs backend restart** (new route).
-- [ ] **Bottom-nav "+" should change when a workout is active** — right now it's always the
-  "new workout" button. When a session is in progress it should be something else (e.g.
-  "Resume/continue session" — different icon/label/color) so it's obvious there's an active
-  workout and tapping it takes you back to it rather than implying starting a new one.
-- [ ] **Dashboard planned-session card shouldn't say "Start workout" once it's in progress**
-  — when the active plan's scheduled session for today has already been started, the home
-  card should show "Resume / In progress" instead of prompting to start it again.
+- [x] **Bottom-nav "+" changes when a workout is active** — `SessionContext` now hydrates
+  from the server on load (finds a session with no end date), so "active session" state
+  survives a reload app-wide. The raised center button keeps its clay color but swaps to a
+  ▶ play icon with a "Resume" label while a session is in progress. Still routes to
+  `/new-session`, which resumes it. Frontend-only.
+- [x] **Dashboard planned-session card shows "Resume", not "Start", once it's in progress**
+  — when the in-progress session was started from today's planned template
+  (`inProgress.sessionTemplateId === next.id`), the card reads "In progress" and offers a
+  "Resume session" button (→ resumeInProgress) instead of "Start session". Frontend-only.
 - [ ] **Time-based logging toggle** — some exercises (stretches, planks, isometric holds)
   should log **duration instead of kg×reps**. Add a per-exercise strength/time toggle (like
   the kg/% toggle) so those log a hold time. (Cardio already logs duration/distance — this
@@ -25,19 +27,19 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   (e.g. Norwegian) phone keyboards send — so only whole numbers could be typed. Switched it
   to a sanitized `type="text"` `inputMode="decimal"` input that accepts `,` or `.`, allows up
   to two decimals, and stores the canonical `.` form (matches the reps-input pattern).
-- [ ] **"Add to Home Screen" prompt needs clearer, platform-aware instructions** — lots of
-  tester feedback that they don't understand it and just dismiss the pop-up. Rework
-  `AddToHomeScreenPrompt`: step-by-step per platform (iOS Safari: Share → Add to Home
-  Screen; Android Chrome: menu → Install), with icons/illustration, a clear "why", and a
-  "remind me later" instead of a one-shot dismiss.
+- [x] **"Add to Home Screen" prompt reworked** — the big win: click-away / ✕ / "Maybe later"
+  now only **snooze** (3 days, then it returns), so an accidental dismiss no longer hides it
+  forever; a separate "Don't show this again" is the only permanent opt-out. Copy sharpened
+  (clear "why" + "takes 5 seconds"), numbered 1-2-3 steps with the platform icons inline
+  (iOS Safari Share → Add to Home Screen; Android Chrome ⋮ → Install). Frontend-only.
 - [ ] **Variable-size supersets** — support grouping exercises into supersets of any length,
   labeled A1–A2, B1–B2–B3, etc. Needs grouping in the builder/session, the A/B group +
   position labels, carried through plans/templates → live session → history. (Check how far
   the existing `/sets` set-type model already goes.)
-- [ ] **Per-set notes should be on-demand, not an always-open textbox** — when per-set notes
-  are enabled, show a small **pen/paper icon button per set** that reveals the note textbox
-  for that set on tap (indicate when a note already exists). Keeps set rows compact. Related
-  to the notes-disappearing bug above.
+- [x] **Per-set notes are now on-demand** — a small pen/paper button per set (desktop: in the
+  Notes column; mobile: an "Add note" pen on its own line) reveals the note input on tap and
+  autofocuses it; a set whose note already has text shows the box straight away. Frontend-only
+  (`SessionBuilderView`, `openNoteIds` state).
 - [ ] **Per-week / per-session periodization in the plan builder** — currently a plan defines
   one week that repeats for the whole program. Add an option to lay out **every week
   individually**, with the builder **paginated per week**, so each session can differ
@@ -47,10 +49,11 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   display what was done last time (previous session's sets: reps × weight, RPE/RIR) as a
   reference to progress off. Needs a "most recent prior log for this exercise+user" lookup
   and a compact per-set display in the session builder.
-- [ ] **"Complete" / check-off sets in the session log** — a way to mark a set as done while
-  logging (e.g. a checkbox/tick per set row that visually completes it), so you can track
-  progress through the workout. Consider whether it's UI-only state or a persisted `completed`
-  flag on the exercise log.
+- [x] **"Complete" / check-off sets in the session log** — the set-number badge is now a
+  toggle while logging: tap it to mark the set done (fills clay with a ✓) and it persists.
+  Backed by a `completed` boolean on `exerciselog` (migration `044`), threaded through the
+  update route/schema and saved immediately on tap (also on other commits), so it survives
+  leaving/resuming. **Needs migration `044` + backend restart.**
 
 ## In progress / next
 

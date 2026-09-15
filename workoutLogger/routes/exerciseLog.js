@@ -26,11 +26,11 @@ router.post('/', validate(createExerciseLogSchema), async (req, res) => {
 });
 
 router.put('/:id', validate(updateExerciseLogSchema), async (req, res) => {
-    const { reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir } = req.body;
+    const { reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, completed } = req.body;
     const exerciseLogId = req.params.id;
     try {
         const updatedExerciseLog = await exerciseLogService.updateExerciseLog(exerciseLogId, {
-            reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir,
+            reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, completed,
         });
         return success(res, updatedExerciseLog);
     } catch (err) {

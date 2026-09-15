@@ -258,6 +258,9 @@ export default function DashboardPage() {
     .slice(0, 4);
   const schedule = planSchedule(plan, sessions);
   const next = schedule?.next;
+  // Today's planned session is already underway when the in-progress session was started
+  // from that same template — then the card should offer Resume, not Start.
+  const todayInProgress = !!(next?.isToday && inProgress && inProgress.sessionTemplateId === next.id);
   const stats = computeStats(finishedSessions);
 
   // Greeting subtitle that reflects the user's actual state instead of a generic line.
@@ -463,15 +466,22 @@ export default function DashboardPage() {
                 <Eyebrow>Next session</Eyebrow>
                 <h2 className="mt-2 text-xl">{next.name}</h2>
                 <p className="mt-1 text-sm text-muted">
-                  {next.isToday
+                  {todayInProgress
+                    ? 'In progress'
+                    : next.isToday
                     ? 'Today'
                     : next.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </p>
-                {next.isToday && (
-                  <Button className="mt-4 w-full" onClick={() => startSession(next.id)} disabled={starting}>
-                    {starting ? 'Starting…' : 'Start session'}
-                  </Button>
-                )}
+                {next.isToday &&
+                  (todayInProgress ? (
+                    <Button className="mt-4 w-full" onClick={resumeInProgress}>
+                      Resume session
+                    </Button>
+                  ) : (
+                    <Button className="mt-4 w-full" onClick={() => startSession(next.id)} disabled={starting}>
+                      {starting ? 'Starting…' : 'Start session'}
+                    </Button>
+                  ))}
               </>
             )}
           </AccentCard>

@@ -299,6 +299,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       notes: log.notes,
       rpe: numOrNull(log.rpe),
       rir: numOrNull(log.rir),
+      completed: !!log.completed,
       ...(isCardio
         ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
         : { reps: log.reps, weight: log.weight }),
@@ -311,6 +312,13 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     } catch (err) {
       console.error('Failed to save:', err);
     }
+  };
+
+  // Tick a set off (or un-tick) and persist immediately.
+  const toggleCompleted = (log) => {
+    const next = !log.completed;
+    updateLog(log, { completed: next });
+    commitLog({ ...log, completed: next });
   };
 
   // Persist the session note/name mid-session (on blur) so they aren't lost if you leave
@@ -338,6 +346,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
         notes: log.notes,
         rpe: numOrNull(log.rpe),
         rir: numOrNull(log.rir),
+        completed: !!log.completed,
         ...(isCardio
           ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
           : { reps: log.reps, weight: log.weight }),
@@ -605,6 +614,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       onDeleteExercise={deleteExercise}
       onReorder={applyExerciseOrder}
       onSetOneRepMax={handleSetOneRepMax}
+      onToggleComplete={toggleCompleted}
       onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
       onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}
       prefs={prefs}
