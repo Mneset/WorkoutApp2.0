@@ -166,6 +166,18 @@ class SessionService {
         }
     }
 
+    // Persist the session-level note/name mid-session WITHOUT ending it (endSession stamps
+    // sessionDateEnd, which is what marks a session finished). Used to save the note on blur
+    // so it isn't lost when you leave and resume the workout.
+    async updateSessionInfo(sessionLogId, { notes, name }) {
+        const fields = {};
+        if (notes !== undefined) fields.notes = notes;
+        if (name !== undefined) fields.name = name;
+        if (Object.keys(fields).length === 0) return 0;
+        const [affected] = await this.db.SessionLog.update(fields, { where: { id: sessionLogId } });
+        return affected;
+    }
+
     async endSession(notes, sessionLogId, updatedLogs, name) {
     try {
         // Finish stamps the end date once; editing a session that's already finished

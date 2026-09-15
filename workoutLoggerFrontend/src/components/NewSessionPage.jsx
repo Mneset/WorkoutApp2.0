@@ -313,6 +313,22 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     }
   };
 
+  // Persist the session note/name mid-session (on blur) so they aren't lost if you leave
+  // the workout and come back — the note was previously only saved on Finish.
+  const commitSessionInfo = async () => {
+    if (!sessionLogId) return;
+    try {
+      const accessToken = await getToken();
+      await api.patch(
+        `/session/${sessionLogId}`,
+        { notes: sessionNotes, name: sessionName },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+    } catch (err) {
+      console.error('Failed to save session info:', err);
+    }
+  };
+
   const saveAllEdits = async () => {
     const accessToken = await getToken();
     for (const log of editTableLogs) {
@@ -578,6 +594,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       statusEyebrow={statusEyebrow}
       note={sessionNotes}
       onNoteChange={setSessionNotes}
+      onNoteCommit={commitSessionInfo}
       logs={editTableLogs}
       exercises={exercises}
       onAddExercise={handleAddExercise}

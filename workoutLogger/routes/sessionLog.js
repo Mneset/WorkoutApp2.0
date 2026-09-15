@@ -39,6 +39,19 @@ router.put('/:id', validate(endSessionSchema), async (req, res) => {
     }
 });
 
+// Save the session note/name mid-session without ending it (fires on blur so the note
+// survives leaving and resuming the workout).
+router.patch('/:id', async (req, res) => {
+    const { notes, name } = req.body;
+    try {
+        await sessionService.updateSessionInfo(req.params.id, { notes, name });
+        return success(res, 'Session updated');
+    } catch (err) {
+        console.error('Failed to update session info:', err);
+        return error(res, 'Failed to update session');
+    }
+});
+
 router.get('/', validateQuery(getSessionsQuerySchema), async (req, res) => {
     const { userId } = req.query;
     try {

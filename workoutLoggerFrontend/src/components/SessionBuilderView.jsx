@@ -57,6 +57,7 @@ export default function SessionBuilderView({
   statusEyebrow,
   note,
   onNoteChange,
+  onNoteCommit,
   logs,
   exercises,
   onAddExercise,
@@ -201,7 +202,10 @@ export default function SessionBuilderView({
                 placeholder={namePlaceholder}
                 value={name}
                 onChange={(e) => onNameChange(e.target.value)}
-                onBlur={() => setEditingName(false)}
+                onBlur={() => {
+                  setEditingName(false);
+                  onNoteCommit?.();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === 'Escape') {
                     e.preventDefault();
@@ -267,6 +271,7 @@ export default function SessionBuilderView({
               placeholder="How did the session go?"
               value={note}
               onChange={(e) => onNoteChange(e.target.value)}
+              onBlur={() => onNoteCommit?.()}
             />
           </Card>
         ) : (
@@ -519,9 +524,7 @@ export default function SessionBuilderView({
                                     ) : (
                                       <div className="relative">
                                         <input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
+                                          type="text"
                                           inputMode="decimal"
                                           placeholder={
                                             templateMode
@@ -535,8 +538,13 @@ export default function SessionBuilderView({
                                           className={numInputClass}
                                           value={log.weight ?? ''}
                                           onChange={(e) => {
-                                            if (Number(e.target.value) < 0) return;
-                                            onUpdateLog(log, { weight: e.target.value });
+                                            // Accept a comma or dot decimal — comma-locale phone
+                                            // keyboards send "," and type="number" would reject it,
+                                            // leaving only whole numbers. Allow up to two decimals
+                                            // and store the canonical "." form.
+                                            const v = e.target.value.replace(',', '.');
+                                            if (v !== '' && !/^\d*\.?\d{0,2}$/.test(v)) return;
+                                            onUpdateLog(log, { weight: v });
                                           }}
                                           onBlur={() => commit(log)}
                                         />
