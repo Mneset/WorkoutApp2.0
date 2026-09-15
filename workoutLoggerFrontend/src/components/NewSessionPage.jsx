@@ -180,7 +180,19 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const { profile } = useUserProfile();
-  const prefs = profile?.preferences || null; // logging field preferences
+  // Map the "logging" preference set into the shape SessionBuilderView reads. The live
+  // metric toggle only offers Weight/Time (no % — it's resolved at start), gated by logTime.
+  const rawPrefs = profile?.preferences || {};
+  const prefs = {
+    showRpe: rawPrefs.logRpe,
+    showRir: rawPrefs.logRir,
+    showNotes: rawPrefs.logNotes,
+    showLastTime: rawPrefs.logLast,
+    metricsEnabled: rawPrefs.logTime,
+    showWeight: true,
+    showTime: rawPrefs.logTime,
+    showPct: false,
+  };
 
   // Presentational count-up timer.
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -299,13 +311,17 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
   const commitLog = async (log) => {
     if (!log.id) return;
     const isCardio = log.Exercise?.type === 'cardio';
+    const timed = !isCardio && !!log.isTimed;
     const body = {
       notes: log.notes,
       rpe: numOrNull(log.rpe),
       rir: numOrNull(log.rir),
       completed: !!log.completed,
+      isTimed: !!log.isTimed,
       ...(isCardio
         ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
+        : timed
+        ? { durationSeconds: parseDuration(log.durationSeconds), reps: null, weight: null }
         : { reps: log.reps, weight: log.weight }),
     };
     try {
@@ -342,6 +358,16 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     commitLog({ ...log, completed: next });
   };
 
+  // Switch an exercise between reps/weight and time-based (hold) logging across all its sets.
+  const handleSetTimed = (exerciseName, timed) => {
+    const affected = editTableLogs.filter((l) => l.Exercise?.name === exerciseName);
+    affected.forEach((l) => {
+      const patch = timed ? { isTimed: true, reps: '', weight: '' } : { isTimed: false, durationSeconds: '' };
+      updateLog(l, patch);
+      commitLog({ ...l, ...patch });
+    });
+  };
+
   // Persist the session note/name mid-session (on blur) so they aren't lost if you leave
   // the workout and come back — the note was previously only saved on Finish.
   const commitSessionInfo = async () => {
@@ -363,13 +389,17 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
     for (const log of editTableLogs) {
       if (!log.id) continue;
       const isCardio = log.Exercise?.type === 'cardio';
+      const timed = !isCardio && !!log.isTimed;
       const body = {
         notes: log.notes,
         rpe: numOrNull(log.rpe),
         rir: numOrNull(log.rir),
         completed: !!log.completed,
+        isTimed: !!log.isTimed,
         ...(isCardio
           ? { durationSeconds: parseDuration(log.durationSeconds), distance: numOrNull(log.distance) }
+          : timed
+          ? { durationSeconds: parseDuration(log.durationSeconds), reps: null, weight: null }
           : { reps: log.reps, weight: log.weight }),
       };
       await api.put(`/exercise-log/${log.id}`, body, {
@@ -389,14 +419,17 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
           notes: sessionNotes,
           updatedLogs: editTableLogs.map((l) => {
             const isCardio = l.Exercise?.type === 'cardio';
+            const timed = !isCardio && !!l.isTimed;
+            const dur = isCardio || timed;
             return {
               ...l,
               rpe: numOrNull(l.rpe),
               rir: numOrNull(l.rir),
-              reps: isCardio ? null : l.reps,
-              weight: isCardio ? null : l.weight,
-              durationSeconds: isCardio ? parseDuration(l.durationSeconds) : null,
+              reps: dur ? null : l.reps,
+              weight: dur ? null : l.weight,
+              durationSeconds: dur ? parseDuration(l.durationSeconds) : null,
               distance: isCardio ? numOrNull(l.distance) : null,
+              isTimed: !!l.isTimed,
             };
           }),
           name: sessionName,
@@ -440,6 +473,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       await saveAllEdits();
       const accessToken = await getToken();
       const isCardio = lastLog.Exercise?.type === 'cardio';
+      const timed = !isCardio && !!lastLog.isTimed;
       const response = await api.post(
         '/exercise-log',
         {
@@ -449,6 +483,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
           notes: lastLog.notes,
           rpe: numOrNull(lastLog.rpe),
           rir: numOrNull(lastLog.rir),
+          isTimed: !!lastLog.isTimed,
           // Carry the prescription placeholders onto the new set too.
           targetReps: lastLog.targetReps ?? null,
           targetWeight: lastLog.targetWeight ?? null,
@@ -458,6 +493,8 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
           sessionLogId,
           ...(isCardio
             ? { durationSeconds: parseDuration(lastLog.durationSeconds), distance: numOrNull(lastLog.distance) }
+            : timed
+            ? { durationSeconds: parseDuration(lastLog.durationSeconds) }
             : { reps: lastLog.reps, weight: lastLog.weight }),
         },
         {
@@ -636,6 +673,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       onReorder={applyExerciseOrder}
       onSetOneRepMax={handleSetOneRepMax}
       onToggleComplete={toggleCompleted}
+      onSetTimed={handleSetTimed}
       lastByExercise={lastByExercise}
       onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
       onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}

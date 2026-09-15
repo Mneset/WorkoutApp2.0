@@ -113,6 +113,9 @@ class SessionService {
             sessionTemplate.ExerciseTemplates.forEach(exerciseTemplate => {
                 const isCardio = exerciseTemplate.Exercise?.type === 'cardio';
                 const isPct = exerciseTemplate.weightUnit === 'pct';
+                // Time-based (hold) strength prescription: sets carry a duration, not reps/weight.
+                const timed = !isCardio && !!exerciseTemplate.isTimed;
+                const dur = isCardio || timed; // logs a duration target, not reps/weight
                 const oneRm = oneRmByExercise[exerciseTemplate.exerciseId];
 
                 // Prefer the per-set prescription; fall back to baseSets identical sets for
@@ -142,14 +145,15 @@ class SessionService {
                             weight: null,
                             durationSeconds: null,
                             distance: null,
-                            targetReps: isCardio ? null : (set.reps != null && set.reps !== '' ? String(set.reps) : null),
-                            targetWeight: isCardio ? null : computeTargetKg(set.weight, isPct, oneRm),
-                            targetWeightPct: isCardio ? null : computeTargetPct(set.weight, isPct),
-                            targetDurationSeconds: isCardio ? (set.durationSeconds ?? null) : null,
+                            targetReps: dur ? null : (set.reps != null && set.reps !== '' ? String(set.reps) : null),
+                            targetWeight: dur ? null : computeTargetKg(set.weight, isPct, oneRm),
+                            targetWeightPct: dur ? null : computeTargetPct(set.weight, isPct),
+                            targetDurationSeconds: dur ? (set.durationSeconds ?? null) : null,
                             targetDistance: isCardio ? (set.distance ?? null) : null,
                             notes: set.notes ?? '',
                             rpe: set.rpe ?? null,
-                            rir: isCardio ? null : (set.rir ?? null),
+                            rir: dur ? null : (set.rir ?? null),
+                            isTimed: timed,
                             sessionLogId: session.id
                         }, { transaction: t })
                     );

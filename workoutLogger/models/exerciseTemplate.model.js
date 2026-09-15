@@ -48,6 +48,13 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 'kg'
         },
+        // Time-based (hold) prescription: sets log a duration instead of reps × weight.
+        isTimed: {
+            type: DataTypes.BOOLEAN,
+            field: 'is_timed',
+            allowNull: false,
+            defaultValue: false
+        },
         // Cardio base metrics (null for strength templates).
         baseDurationSeconds: {
             type: DataTypes.INTEGER,

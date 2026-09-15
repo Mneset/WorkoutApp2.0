@@ -87,6 +87,7 @@ export default function SessionBuilderView({
   onDeleteExercise,
   onReorder,
   onSetWeightUnit,
+  onSetTimed,
   onSetOneRepMax,
   onExerciseCreated,
   onExerciseDeleted,
@@ -112,10 +113,11 @@ export default function SessionBuilderView({
         l.targetDurationSeconds != null ||
         l.targetDistance != null
     );
+  // "Track extra metrics" master gates the per-exercise Weight/Time/1RM% mode toggle only.
+  const metricsOn = !!prefs?.metricsEnabled;
   const colRpe = prefs?.showRpe !== false || fromProgram || hasValue('rpe');
   const colRir = prefs?.showRir !== false || fromProgram || hasValue('rir');
   const colNotes = prefs?.showNotes !== false || fromProgram || hasValue('notes');
-  // Per-set "last time" reference row (default on).
   const colLast = prefs?.showLastTime !== false;
 
   // A prescribed target → placeholder text (or a dash when there's none).
@@ -330,12 +332,14 @@ export default function SessionBuilderView({
               {groupedLogs.map(([exerciseName, exLogs], groupIndex) => {
                 const isCardio = exLogs[0]?.Exercise?.type === 'cardio';
                 const isPct = (exLogs[0]?.weightUnit || 'kg') === 'pct';
+                // Time-based (hold) strength exercise: logs a duration per set, no reps/weight.
+                const timed = !isCardio && !!exLogs[0]?.isTimed;
                 // Live logging: any set prescribed by % (needs room below for its label).
                 const anyPct = !templateMode && exLogs.some((l) => l.targetWeightPct != null);
                 // Dynamic set-table columns: cardio always shows Pace; strength shows RIR
                 // only if enabled; RPE/Notes follow prefs. Desktop gets a trailing ✕ column;
                 // on mobile Notes drops to its own full-width line and delete is via swipe.
-                const showThird = isCardio || colRir;
+                const showThird = isCardio || (colRir && !timed);
                 const desktopDelete = !coarse;
                 const gridCols = [
                   narrow ? '30px' : '34px',
@@ -362,27 +366,47 @@ export default function SessionBuilderView({
                                   Cardio
                                 </span>
                               )}
-                              {templateMode && !isCardio && (
-                                <div className="mt-1.5 inline-flex overflow-hidden rounded-lg border border-line-strong text-[11px]">
-                                  {[
-                                    { u: 'kg', label: 'kg' },
-                                    { u: 'pct', label: '% 1RM' },
-                                  ].map(({ u, label }) => (
-                                    <button
-                                      key={u}
-                                      type="button"
-                                      onClick={() => onSetWeightUnit?.(exerciseName, u)}
-                                      className={`px-2 py-0.5 font-semibold transition-colors ${
-                                        (isPct ? 'pct' : 'kg') === u
-                                          ? 'bg-clay-tint text-clay'
-                                          : 'text-muted hover:text-ink'
-                                      }`}
-                                    >
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                              {!isCardio &&
+                                metricsOn &&
+                                (templateMode || onSetTimed) &&
+                                (() => {
+                                  // Only the modes enabled in the profile appear; a live session
+                                  // has no % option (it's resolved at start). Fewer than two
+                                  // options → nothing to toggle.
+                                  const options = [
+                                    { mode: 'kg', label: 'Weight', show: prefs?.showWeight !== false },
+                                    { mode: 'time', label: 'Time', show: prefs?.showTime !== false },
+                                    ...(templateMode
+                                      ? [{ mode: 'pct', label: '1RM%', show: prefs?.showPct !== false }]
+                                      : []),
+                                  ].filter((o) => o.show);
+                                  if (options.length <= 1) return null;
+                                  const current = timed ? 'time' : isPct ? 'pct' : 'kg';
+                                  const setMode = (m) => {
+                                    if (m === 'time') {
+                                      onSetTimed?.(exerciseName, true);
+                                    } else {
+                                      onSetTimed?.(exerciseName, false);
+                                      onSetWeightUnit?.(exerciseName, m);
+                                    }
+                                  };
+                                  return (
+                                    <div className="mt-1.5 inline-flex overflow-hidden rounded-lg border border-line-strong text-[11px]">
+                                      {options.map(({ mode, label }) => (
+                                        <button
+                                          key={mode}
+                                          type="button"
+                                          onClick={() => setMode(mode)}
+                                          className={`px-2.5 py-0.5 font-semibold transition-colors ${
+                                            current === mode ? 'bg-clay-tint text-clay' : 'text-muted hover:text-ink'
+                                          }`}
+                                        >
+                                          {label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-2">
                               <button
@@ -458,8 +482,14 @@ export default function SessionBuilderView({
                                 className="grid gap-1.5 border-b border-line pb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:gap-2"
                               >
                                 <span>Set</span>
-                                <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
-                                <span className="text-center">{isCardio ? 'Km' : isPct ? '%' : 'Kg'}</span>
+                                {timed ? (
+                                  <span className="text-center" style={{ gridColumn: 'span 2' }}>Time</span>
+                                ) : (
+                                  <>
+                                    <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
+                                    <span className="text-center">{isCardio ? 'Km' : isPct ? '%' : 'Kg'}</span>
+                                  </>
+                                )}
                                 {colRpe && (
                                   <span
                                     className="cursor-help text-center underline decoration-dotted decoration-muted underline-offset-2"
@@ -521,7 +551,18 @@ export default function SessionBuilderView({
                                         </span>
                                       )}
                                     </div>
-                                    {isCardio ? (
+                                    {timed ? (
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="mm:ss"
+                                        style={{ gridColumn: 'span 2' }}
+                                        className={numInputClass}
+                                        value={log.durationSeconds || ''}
+                                        onChange={(e) => onUpdateLog(log, { durationSeconds: formatTimeInput(e.target.value) })}
+                                        onBlur={() => commit(log)}
+                                      />
+                                    ) : isCardio ? (
                                       <input
                                         type="text"
                                         inputMode="numeric"
@@ -561,7 +602,8 @@ export default function SessionBuilderView({
                                         onBlur={() => commit(log)}
                                       />
                                     )}
-                                    {isCardio ? (
+                                    {!timed &&
+                                      (isCardio ? (
                                       <input
                                         type="number"
                                         min="0"
@@ -633,7 +675,7 @@ export default function SessionBuilderView({
                                             </button>
                                           )}
                                       </div>
-                                    )}
+                                      ))}
                                     {colRpe && (
                                       <ScoreSelect
                                         value={log.rpe ?? ''}
@@ -697,14 +739,17 @@ export default function SessionBuilderView({
                                       (() => {
                                         const ls = lastSetFor(log.exerciseId, index);
                                         if (!ls) return null;
-                                        const c1 = isCardio
-                                          ? ls.durationSeconds
-                                            ? formatDuration(ls.durationSeconds)
-                                            : ''
-                                          : ls.reps != null && ls.reps !== ''
-                                          ? String(ls.reps)
-                                          : '';
-                                        const c2 = isCardio
+                                        const c1 =
+                                          isCardio || timed
+                                            ? ls.durationSeconds
+                                              ? formatDuration(ls.durationSeconds)
+                                              : ''
+                                            : ls.reps != null && ls.reps !== ''
+                                            ? String(ls.reps)
+                                            : '';
+                                        const c2 = timed
+                                          ? null
+                                          : isCardio
                                           ? ls.distance != null && ls.distance !== ''
                                             ? `${ls.distance} km`
                                             : ''
@@ -712,6 +757,8 @@ export default function SessionBuilderView({
                                           ? `${ls.weight} kg`
                                           : '';
                                         if (!c1 && !c2) return null;
+                                        const boxClass =
+                                          'truncate rounded-md border border-dashed border-line-strong bg-surface-2 px-1 py-1 text-center text-xs font-semibold text-clay-ink';
                                         const rpeVal =
                                           ls.rpe != null && ls.rpe !== '' ? String(ls.rpe) : '–';
                                         const rirVal =
@@ -725,15 +772,13 @@ export default function SessionBuilderView({
                                             <div className="flex justify-center text-muted" aria-label="Last time">
                                               {historyGlyph}
                                             </div>
-                                            {[c1 || '–', c2 || '–', ...(colRpe ? [rpeVal] : []), ...(showThird ? [isCardio ? '' : rirVal] : [])].map(
-                                              (v, ci) => (
-                                                <div
-                                                  key={ci}
-                                                  className="truncate rounded-md border border-dashed border-line-strong bg-surface-2 px-1 py-1 text-center text-xs font-semibold text-clay-ink"
-                                                >
-                                                  {v || ' '}
-                                                </div>
-                                              )
+                                            <div className={boxClass} style={timed ? { gridColumn: 'span 2' } : undefined}>
+                                              {c1 || ' '}
+                                            </div>
+                                            {!timed && <div className={boxClass}>{c2 || ' '}</div>}
+                                            {colRpe && <div className={boxClass}>{rpeVal}</div>}
+                                            {showThird && (
+                                              <div className={boxClass}>{isCardio ? ' ' : rirVal}</div>
                                             )}
                                           </div>
                                         );

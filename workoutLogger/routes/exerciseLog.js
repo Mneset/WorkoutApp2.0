@@ -13,10 +13,10 @@ const { success, error } = require('../utils/response');
 router.use(checkForUser);
 
 router.post('/', validate(createExerciseLogSchema), async (req, res) => {
-    const { exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, sessionLogId } = req.body;
+    const { exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, isTimed, sessionLogId } = req.body;
     try {
         const exerciseLog = await exerciseLogService.addExerciseLogToSession({
-            exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, sessionLogId,
+            exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, isTimed, sessionLogId,
         });
         return success(res, exerciseLog, 201);
     } catch (err) {
@@ -26,11 +26,11 @@ router.post('/', validate(createExerciseLogSchema), async (req, res) => {
 });
 
 router.put('/:id', validate(updateExerciseLogSchema), async (req, res) => {
-    const { reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, completed } = req.body;
+    const { reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, completed, isTimed } = req.body;
     const exerciseLogId = req.params.id;
     try {
         const updatedExerciseLog = await exerciseLogService.updateExerciseLog(exerciseLogId, {
-            reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, completed,
+            reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, completed, isTimed,
         });
         return success(res, updatedExerciseLog);
     } catch (err) {

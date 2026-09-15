@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../context/UserContext';
 import api from '../api';
 import Card from './Card';
 import Button from './Button';
@@ -26,6 +27,13 @@ const Eyebrow = ({ children }) => (
 
 export default function CreatePlanPage() {
   const { getToken } = useAuth();
+  const { profile } = useUserProfile();
+  const prefs = profile?.preferences || null;
+  // "Show while creating" prefs gate the plan builder's columns; the Metric modes master
+  // gates the Weight/Time/1RM% toggle.
+  const metricsOn = !!prefs?.metricsEnabled;
+  const colRpe = prefs?.showRpe !== false;
+  const colRir = prefs?.showRir !== false;
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeId } = useParams();
@@ -114,6 +122,7 @@ export default function CreatePlanPage() {
           .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
           .map((et) => {
             const isCardio = et.Exercise?.type === 'cardio';
+            const isTimed = !isCardio && !!et.isTimed;
             const sets = Array.isArray(et.sets) && et.sets.length ? et.sets : [{}];
             return {
               tempId: uid(),
@@ -122,8 +131,9 @@ export default function CreatePlanPage() {
               type: isCardio ? 'cardio' : 'strength',
               notes: et.notes || '',
               weightUnit: et.weightUnit || 'kg',
+              isTimed,
               sets: sets.map((s) =>
-                isCardio
+                isCardio || isTimed
                   ? {
                       durationSeconds: s.durationSeconds ? formatDuration(s.durationSeconds) : '',
                       distance: s.distance ?? '',
@@ -167,6 +177,7 @@ export default function CreatePlanPage() {
       : {
           reps: from.reps || '',
           weight: from.weight || '',
+          durationSeconds: from.durationSeconds || '',
           rpe: from.rpe || '',
           rir: from.rir || '',
         };
@@ -261,6 +272,21 @@ export default function CreatePlanPage() {
               ...s,
               exercises: s.exercises.map((e) =>
                 e.tempId === exerciseTempId ? { ...e, weightUnit: unit } : e
+              ),
+            }
+      )
+    );
+
+  // Switch an exercise between reps/weight and time-based (hold) prescription.
+  const setExerciseTimed = (templateTempId, exerciseTempId, timed) =>
+    setSessionTemplates((prev) =>
+      prev.map((s) =>
+        s.tempId !== templateTempId
+          ? s
+          : {
+              ...s,
+              exercises: s.exercises.map((e) =>
+                e.tempId === exerciseTempId ? { ...e, isTimed: timed } : e
               ),
             }
       )
@@ -362,11 +388,17 @@ export default function CreatePlanPage() {
         for (let j = 0; j < st.exercises.length; j++) {
           const ex = st.exercises[j];
           const isCardio = ex.type === 'cardio';
+          const timed = !isCardio && !!ex.isTimed;
           const sets = ex.sets.map((set) =>
             isCardio
               ? {
                   durationSeconds: parseDuration(set.durationSeconds),
                   distance: numOrNull(set.distance),
+                  rpe: numOrNull(set.rpe),
+                }
+              : timed
+              ? {
+                  durationSeconds: parseDuration(set.durationSeconds),
                   rpe: numOrNull(set.rpe),
                 }
               : {
@@ -391,6 +423,7 @@ export default function CreatePlanPage() {
               baseSets: sets.length,
               baseRpe: first.rpe ?? null,
               weightUnit: ex.weightUnit || 'kg',
+              isTimed: timed,
               sets,
               notes: ex.notes?.trim() || null,
               ...(isCardio
@@ -398,6 +431,8 @@ export default function CreatePlanPage() {
                     baseDurationSeconds: first.durationSeconds ?? null,
                     baseDistance: first.distance ?? null,
                   }
+                : timed
+                ? { baseDurationSeconds: first.durationSeconds ?? null }
                 : {
                     baseReps,
                     baseWeight: first.weight ?? null,
@@ -525,13 +560,20 @@ export default function CreatePlanPage() {
           >
           {st.exercises.map((ex, idx) => {
             const isCardio = ex.type === 'cardio';
+            const timed = !isCardio && !!ex.isTimed;
             const exName =
               ex.exerciseName ||
               exercises.find((x) => x.id === Number(ex.exerciseId))?.name ||
               'Exercise';
-            const gridCols = isCardio
-              ? 'grid-cols-[28px_1fr_1fr_1fr_28px]'
-              : 'grid-cols-[28px_1fr_1fr_1fr_1fr_28px]';
+            // Columns: Set, the metric input(s) (Time, or Reps + Kg/Km), then RPE / RIR
+            // (RIR only for reps mode), then delete.
+            const gridTemplate = [
+              '28px',
+              ...(timed ? ['1fr'] : ['1fr', '1fr']),
+              ...(colRpe ? ['1fr'] : []),
+              ...(!isCardio && !timed && colRir ? ['1fr'] : []),
+              '28px',
+            ].join(' ');
             return (
             <SortableRow key={ex.tempId} id={ex.tempId}>
               {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
@@ -549,25 +591,38 @@ export default function CreatePlanPage() {
                       Cardio
                     </span>
                   ) : (
-                    <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-line-strong text-[10px]">
-                      {[
-                        { u: 'kg', label: 'kg' },
-                        { u: 'pct', label: '% 1RM' },
-                      ].map(({ u, label }) => (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => setExerciseWeightUnit(st.tempId, ex.tempId, u)}
-                          className={`px-1.5 py-0.5 font-semibold transition-colors ${
-                            (ex.weightUnit || 'kg') === u
-                              ? 'bg-clay-tint text-clay'
-                              : 'text-muted hover:text-ink'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                    metricsOn &&
+                    (() => {
+                      const options = [
+                        { mode: 'kg', label: 'Weight', show: prefs?.showWeight !== false },
+                        { mode: 'time', label: 'Time', show: prefs?.showTime !== false },
+                        { mode: 'pct', label: '1RM%', show: prefs?.showPct !== false },
+                      ].filter((o) => o.show);
+                      if (options.length <= 1) return null;
+                      const current = timed ? 'time' : ex.weightUnit === 'pct' ? 'pct' : 'kg';
+                      return (
+                        <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-line-strong text-[10px]">
+                          {options.map(({ mode, label }) => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => {
+                                if (mode === 'time') setExerciseTimed(st.tempId, ex.tempId, true);
+                                else {
+                                  setExerciseTimed(st.tempId, ex.tempId, false);
+                                  setExerciseWeightUnit(st.tempId, ex.tempId, mode);
+                                }
+                              }}
+                              className={`px-1.5 py-0.5 font-semibold transition-colors ${
+                                current === mode ? 'bg-clay-tint text-clay' : 'text-muted hover:text-ink'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
                 {coarse ? (
@@ -616,12 +671,21 @@ export default function CreatePlanPage() {
               {!isSorting && (
               <div className="mt-3">
                 {/* Column headers */}
-                <div className={`grid ${gridCols} items-center gap-1.5 border-b border-line pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted`}>
+                <div
+                  style={{ gridTemplateColumns: gridTemplate }}
+                  className="grid items-center gap-1.5 border-b border-line pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted"
+                >
                   <span>Set</span>
-                  <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
-                  <span className="text-center">{isCardio ? 'Km' : ex.weightUnit === 'pct' ? '%' : 'Kg'}</span>
-                  <span className="text-center">RPE</span>
-                  {!isCardio && <span className="text-center">RIR</span>}
+                  {timed ? (
+                    <span className="text-center">Time</span>
+                  ) : (
+                    <>
+                      <span className="text-center">{isCardio ? 'Time' : 'Reps'}</span>
+                      <span className="text-center">{isCardio ? 'Km' : ex.weightUnit === 'pct' ? '%' : 'Kg'}</span>
+                    </>
+                  )}
+                  {colRpe && <span className="text-center">RPE</span>}
+                  {!isCardio && !timed && colRir && <span className="text-center">RIR</span>}
                   <span />
                 </div>
 
@@ -629,14 +693,26 @@ export default function CreatePlanPage() {
                 {ex.sets.map((set, sIdx) => (
                   <div
                     key={sIdx}
-                    className={`grid ${gridCols} items-center gap-1.5 py-1.5 ${
+                    style={{ gridTemplateColumns: gridTemplate }}
+                    className={`grid items-center gap-1.5 py-1.5 ${
                       sIdx > 0 ? 'border-t border-line' : ''
                     }`}
                   >
                     <span className="grid h-6 w-6 place-items-center rounded-full bg-clay-tint text-xs font-bold text-clay">
                       {sIdx + 1}
                     </span>
-                    {isCardio ? (
+                    {timed ? (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="mm:ss"
+                        className={`${inputClass} w-full px-1.5 text-center`}
+                        value={set.durationSeconds || ''}
+                        onChange={(e) =>
+                          updateSetField(st.tempId, ex.tempId, sIdx, 'durationSeconds', formatTimeInput(e.target.value))
+                        }
+                      />
+                    ) : isCardio ? (
                       <input
                         type="text"
                         inputMode="numeric"
@@ -660,7 +736,8 @@ export default function CreatePlanPage() {
                         }}
                       />
                     )}
-                    {isCardio ? (
+                    {!timed &&
+                      (isCardio ? (
                       <input
                         type="number"
                         min="0"
@@ -687,13 +764,15 @@ export default function CreatePlanPage() {
                           updateSetField(st.tempId, ex.tempId, sIdx, 'weight', e.target.value);
                         }}
                       />
+                    ))}
+                    {colRpe && (
+                      <ScoreSelect
+                        value={set.rpe}
+                        options={RPE_OPTIONS}
+                        onChange={(v) => updateSetField(st.tempId, ex.tempId, sIdx, 'rpe', v)}
+                      />
                     )}
-                    <ScoreSelect
-                      value={set.rpe}
-                      options={RPE_OPTIONS}
-                      onChange={(v) => updateSetField(st.tempId, ex.tempId, sIdx, 'rpe', v)}
-                    />
-                    {!isCardio && (
+                    {!isCardio && !timed && colRir && (
                       <ScoreSelect
                         value={set.rir}
                         options={RIR_OPTIONS}

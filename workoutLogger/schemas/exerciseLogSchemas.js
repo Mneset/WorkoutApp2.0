@@ -20,6 +20,7 @@ const createExerciseLogSchema = z.object({
     targetDurationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     targetDistance: z.coerce.number().nonnegative().nullable().optional(),
     completed: z.boolean().optional(),
+    isTimed: z.boolean().optional(),
     sessionLogId: z.number().int().positive('sessionLogId is required')
 });
 
@@ -33,6 +34,7 @@ const updateExerciseLogSchema = z.object({
     rpe: z.coerce.number().min(0).max(10).nullable().optional(),
     rir: z.coerce.number().int().nonnegative().nullable().optional(),
     completed: z.boolean().optional(),
+    isTimed: z.boolean().optional(),
     // Allow resolving a %-of-1RM target once a 1RM is set mid-session.
     targetWeight: z.union([z.string(), z.number()]).nullable().optional(),
     targetWeightPct: z.coerce.number().nonnegative().nullable().optional()

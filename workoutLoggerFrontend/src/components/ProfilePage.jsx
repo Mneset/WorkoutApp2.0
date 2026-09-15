@@ -10,18 +10,45 @@ const inputClass =
 
 // Defaults when a user has no saved preferences yet.
 const DEFAULT_PREFS = {
+  // Creating (plan/template builder) context
+  metricsEnabled: false, // off by default → builders start at reps & kg
+  showWeight: true,
+  showTime: true,
+  showPct: true,
   showRpe: true,
   showRir: true,
   showNotes: true,
   showLastTime: true,
+  // Logging (live session) context
+  logRpe: true,
+  logRir: true,
+  logNotes: true,
+  logLast: true,
+  logTime: false, // off → live logging stays reps & kg; on → Weight/Time toggle appears
   basicExercisesOnly: true,
 };
 
-const TOGGLES = [
+// Optional columns shown while logging a live session.
+const LOG_TOGGLES = [
+  { key: 'logRpe', label: 'RPE', hint: 'Rate of perceived exertion column' },
+  { key: 'logRir', label: 'RIR', hint: 'Reps in reserve column' },
+  { key: 'logNotes', label: 'Notes', hint: 'Per-set notes column' },
+  { key: 'logLast', label: 'Last time', hint: 'Previous-session reference under each set' },
+];
+
+// Optional columns shown while building a plan or template.
+const PLAN_TOGGLES = [
   { key: 'showRpe', label: 'RPE', hint: 'Rate of perceived exertion column' },
   { key: 'showRir', label: 'RIR', hint: 'Reps in reserve column' },
   { key: 'showNotes', label: 'Notes', hint: 'Per-set notes column' },
   { key: 'showLastTime', label: 'Last time', hint: 'Previous-session reference under each set' },
+];
+
+// The three per-exercise logging modes offered by the Weight/Time/1RM% toggle in the builders.
+const METRIC_MODES = [
+  { key: 'showWeight', label: 'Weight', hint: 'Log reps × weight (kg)' },
+  { key: 'showTime', label: 'Time', hint: 'Log by time instead of reps × weight (mm:ss)' },
+  { key: 'showPct', label: '1RM %', hint: 'Prescribe weight as a % of your 1RM' },
 ];
 
 function Toggle({ on, onChange }) {
@@ -158,14 +185,14 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {/* Logging preferences */}
+      {/* Show while logging — live session */}
       <Card className="mt-4 p-5">
         <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
           Show while logging
         </span>
-        <p className="mt-1 text-sm text-muted">Hide fields you don't track to keep logging tidy.</p>
+        <p className="mt-1 text-sm text-muted">Which fields appear when you log a live session.</p>
         <div className="mt-3 divide-y divide-line">
-          {TOGGLES.map((t) => (
+          {LOG_TOGGLES.map((t) => (
             <div key={t.key} className="flex items-center justify-between gap-4 py-3">
               <div>
                 <div className="text-sm font-semibold text-ink">{t.label}</div>
@@ -174,6 +201,68 @@ export default function ProfilePage() {
               <Toggle on={!!prefs[t.key]} onChange={(v) => setPref(t.key, v)} />
             </div>
           ))}
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <div className="text-sm font-semibold text-ink">Time</div>
+              <div className="text-xs text-muted">
+                Add a Weight / Time toggle so an exercise can be logged by time
+              </div>
+            </div>
+            <Toggle on={!!prefs.logTime} onChange={(v) => setPref('logTime', v)} />
+          </div>
+        </div>
+      </Card>
+
+      {/* Show while creating a plan/template — the builders */}
+      <Card className="mt-4 p-5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
+          Show while creating a plan / template
+        </span>
+        <p className="mt-1 text-sm text-muted">Which fields appear in the plan &amp; template builders.</p>
+        <div className="mt-3 divide-y divide-line">
+          {PLAN_TOGGLES.map((t) => (
+            <div key={t.key} className="flex items-center justify-between gap-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-ink">{t.label}</div>
+                <div className="text-xs text-muted">{t.hint}</div>
+              </div>
+              <Toggle on={!!prefs[t.key]} onChange={(v) => setPref(t.key, v)} />
+            </div>
+          ))}
+          {/* Per-exercise Weight/Time/1RM% mode toggle. */}
+          <div className="py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-ink">Metric modes</div>
+                <div className="text-xs text-muted">
+                  Modes for the per-exercise toggle. Off = reps &amp; kg.
+                </div>
+              </div>
+              <Toggle on={!!prefs.metricsEnabled} onChange={(v) => setPref('metricsEnabled', v)} />
+            </div>
+            {prefs.metricsEnabled && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {METRIC_MODES.map((m) => {
+                  const on = !!prefs[m.key];
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setPref(m.key, !on)}
+                      aria-pressed={on}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                        on
+                          ? 'border-clay bg-clay-tint text-clay'
+                          : 'border-line-strong text-muted hover:border-clay hover:text-clay'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </Card>
 

@@ -18,10 +18,24 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
   — when the in-progress session was started from today's planned template
   (`inProgress.sessionTemplateId === next.id`), the card reads "In progress" and offers a
   "Resume session" button (→ resumeInProgress) instead of "Start session". Frontend-only.
-- [ ] **Time-based logging toggle** — some exercises (stretches, planks, isometric holds)
-  should log **duration instead of kg×reps**. Add a per-exercise strength/time toggle (like
-  the kg/% toggle) so those log a hold time. (Cardio already logs duration/distance — this
-  is a "timed strength/hold" variant, likely reusing the duration input without distance/pace.)
+- [x] **Time-based logging (3-way Weight / Time / 1RM% toggle)** — each exercise in the
+  session, plan and template builders has a **Weight · Time · 1RM%** toggle (live session
+  omits 1RM% since it's resolved). Time mode logs a single **hold duration (mm:ss)** per set
+  instead of reps × weight (RIR hidden, RPE kept). Backed by `is_timed` on `exerciselog`
+  (migration `045`) and `exercisetemplate` (migration `046`); threaded through the log
+  create/update routes, exercise-template create, the finish payload, and `startSession`
+  (timed template → duration-target logs). History shows timed sets as "1:00 hold"; the
+  "last time" reference adapts. **Needs migrations `045`+`046` + backend restart.**
+- [x] **Profile: two field-visibility sections** — **Show while logging** (live session) and
+  **Show while creating a plan / template** (builders), each with its own RPE / RIR / Notes /
+  Last time toggles (independent per context). The metric part differs: logging has a single
+  **Time** toggle (adds a Weight/Time mode toggle so exercises can log a hold); creating has
+  **Metric modes** — a master + **Weight / Time / 1RM%** pills picking which appear on the
+  per-exercise toggle. Logging prefs (`logRpe/logRir/logNotes/logLast/logTime`) are mapped
+  into the builder-view shape by `NewSessionPage`; creating prefs
+  (`showRpe/…/metricsEnabled/showWeight/showTime/showPct`) drive the template & plan builders.
+  A prescribed metric still shows while following a plan (fromProgram override). **Schema
+  change needs a backend restart.**
 - [x] **Weight input must allow up to 2 decimals** (not integer-only). Root cause: the live
   weight input was `type="number"`, which rejects the comma decimal key that comma-locale
   (e.g. Norwegian) phone keyboards send — so only whole numbers could be typed. Switched it
@@ -91,6 +105,14 @@ Plan: `~/.claude/plans/velvet-purring-quill.md` (Expand exercise library + Cardi
 - [x] **Weight supports decimals** — `exerciselog.weight` INTEGER → FLOAT (migration `029`).
 
 ## Backlog / ideas
+
+- [ ] **"Log by time by default" on custom exercises** — an exercise-level flag (new column,
+  e.g. `default_timed`) + a checkbox on the create-exercise form, so inherently-timed moves
+  (stretches, planks, dead hangs) start in **Time** mode when added instead of Weight. The
+  per-use Weight/Time toggle still overrides. Seed `isTimed` from it in `handleAddExercise`
+  / `addExerciseToTemplate`. **Override:** when an exercise is already in Time mode, show the
+  Weight/Time toggle even if Time is off in profile (same pattern as prescribed metrics) so a
+  default-timed exercise is never stuck with no way to switch.
 
 - [x] **Edit plans & templates** — a pencil edit icon on each plan/template card opens the
   builder (`CreatePlanPage` / `CreateTemplatePage`) in **edit mode**, pre-populated from the

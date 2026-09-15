@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUserProfile } from '../context/UserContext';
 import api from '../api';
 import Button from './Button';
 import SessionBuilderView, { Eyebrow } from './SessionBuilderView';
@@ -15,6 +16,8 @@ const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Num
  */
 export default function CreateTemplatePage() {
   const { getToken, user } = useAuth();
+  const { profile } = useUserProfile();
+  const prefs = profile?.preferences || null;
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeId } = useParams();
@@ -86,6 +89,7 @@ export default function CreateTemplatePage() {
     );
     sorted.forEach((et, idx) => {
       const isCardio = et.Exercise?.type === 'cardio';
+      const isTimed = !isCardio && !!et.isTimed;
       const sets = Array.isArray(et.sets) && et.sets.length ? et.sets : [{}];
       sets.forEach((s) => {
         rows.push({
@@ -94,6 +98,7 @@ export default function CreateTemplatePage() {
           orderIndex: idx,
           notes: s.notes ?? '',
           weightUnit: et.weightUnit || 'kg',
+          isTimed,
           Exercise: { name: et.Exercise?.name, type: et.Exercise?.type },
           ...(isCardio
             ? {
@@ -101,6 +106,8 @@ export default function CreateTemplatePage() {
                 distance: s.distance ?? '',
                 rpe: s.rpe ?? null,
               }
+            : isTimed
+            ? { durationSeconds: s.durationSeconds ? formatDuration(s.durationSeconds) : '', rpe: s.rpe ?? null }
             : { reps: s.reps ?? '', weight: s.weight ?? '', rpe: s.rpe ?? null, rir: s.rir ?? null }),
         });
       });
@@ -141,14 +148,17 @@ export default function CreateTemplatePage() {
       if (forEx.length === 0) return prev;
       const last = forEx[forEx.length - 1];
       const isCardio = last.Exercise?.type === 'cardio';
+      const isTimed = !isCardio && !!last.isTimed;
       const newLog = {
         id: makeId(),
         exerciseId: last.exerciseId,
         orderIndex: last.orderIndex,
         notes: '',
         weightUnit: last.weightUnit || 'kg',
+        isTimed,
         Exercise: last.Exercise,
         ...blankFields(isCardio, last),
+        ...(isTimed ? { durationSeconds: '' } : {}),
       };
       // Insert right after the exercise's existing sets so grouping stays contiguous.
       const lastIdx = prev.map((l) => l.Exercise?.name).lastIndexOf(exerciseName);
@@ -170,6 +180,18 @@ export default function CreateTemplatePage() {
   const setWeightUnit = (exerciseName, unit) =>
     setLogs((prev) => prev.map((l) => (l.Exercise?.name === exerciseName ? { ...l, weightUnit: unit } : l)));
 
+  // Switch an exercise between reps/weight and time-based (hold) prescription.
+  const setTimed = (exerciseName, timed) =>
+    setLogs((prev) =>
+      prev.map((l) =>
+        l.Exercise?.name === exerciseName
+          ? timed
+            ? { ...l, isTimed: true, durationSeconds: l.durationSeconds ?? '', reps: '', weight: '' }
+            : { ...l, isTimed: false }
+          : l
+      )
+    );
+
   const applyOrder = (order) => {
     const orderByName = Object.fromEntries(order.map((n, i) => [n, i]));
     setLogs((prev) => prev.map((l) => ({ ...l, orderIndex: orderByName[l.Exercise?.name] ?? l.orderIndex })));
@@ -180,7 +202,7 @@ export default function CreateTemplatePage() {
     const map = new Map();
     for (const l of logs) {
       const n = l.Exercise?.name;
-      if (!map.has(n)) map.set(n, { name: n, type: l.Exercise?.type, exerciseId: l.exerciseId, weightUnit: l.weightUnit || 'kg', order: l.orderIndex ?? 0, sets: [] });
+      if (!map.has(n)) map.set(n, { name: n, type: l.Exercise?.type, exerciseId: l.exerciseId, weightUnit: l.weightUnit || 'kg', isTimed: !!l.isTimed, order: l.orderIndex ?? 0, sets: [] });
       map.get(n).sets.push(l);
     }
     return [...map.values()].sort((a, b) => a.order - b.order);
@@ -228,11 +250,18 @@ export default function CreateTemplatePage() {
       for (let j = 0; j < groups.length; j++) {
         const g = groups[j];
         const isCardio = g.type === 'cardio';
+        const timed = !isCardio && !!g.isTimed;
         const sets = g.sets.map((s) =>
           isCardio
             ? {
                 durationSeconds: parseDuration(s.durationSeconds),
                 distance: numOrNull(s.distance),
+                rpe: numOrNull(s.rpe),
+                notes: s.notes?.trim() || null,
+              }
+            : timed
+            ? {
+                durationSeconds: parseDuration(s.durationSeconds),
                 rpe: numOrNull(s.rpe),
                 notes: s.notes?.trim() || null,
               }
@@ -258,9 +287,12 @@ export default function CreateTemplatePage() {
             baseSets: sets.length,
             baseRpe: first.rpe ?? null,
             weightUnit: g.weightUnit,
+            isTimed: timed,
             sets,
             ...(isCardio
               ? { baseDurationSeconds: first.durationSeconds ?? null, baseDistance: first.distance ?? null }
+              : timed
+              ? { baseDurationSeconds: first.durationSeconds ?? null }
               : {
                   baseReps,
                   baseWeight: first.weight ?? null,
@@ -313,6 +345,8 @@ export default function CreateTemplatePage() {
         onDeleteExercise={deleteExercise}
         onReorder={applyOrder}
         onSetWeightUnit={setWeightUnit}
+        onSetTimed={setTimed}
+        prefs={prefs}
         onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
         onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}
         footer={

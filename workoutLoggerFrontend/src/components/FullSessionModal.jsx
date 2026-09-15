@@ -120,6 +120,11 @@ export default function FullSessionModal({ session, onClose }) {
                             {pace(log.durationSeconds, log.distance) ? ` · ${pace(log.durationSeconds, log.distance)}` : ''}
                             {log.rpe != null && log.rpe !== '' ? ` · RPE ${log.rpe}` : ''}
                           </span>
+                        ) : log.isTimed ? (
+                          <span>
+                            {formatDuration(log.durationSeconds) || '–'}
+                            {log.rpe != null && log.rpe !== '' ? ` · RPE ${log.rpe}` : ''}
+                          </span>
                         ) : (
                           <span>
                             {log.reps} reps × {log.weight} kg

@@ -29,7 +29,8 @@ const createExerciseTemplateSchema = z.object({
     baseRir: z.coerce.number().int().nonnegative().nullable().optional(),
     sets: z.array(setTemplateSchema).nullable().optional(),
     notes: z.string().nullable().optional(),
-    weightUnit: z.enum(['kg', 'pct']).optional()
+    weightUnit: z.enum(['kg', 'pct']).optional(),
+    isTimed: z.boolean().optional()
 });
 
 const updateExerciseTemplateSchema = z.object({
@@ -45,7 +46,8 @@ const updateExerciseTemplateSchema = z.object({
     baseRir: z.coerce.number().int().nonnegative().nullable().optional(),
     sets: z.array(setTemplateSchema).nullable().optional(),
     notes: z.string().nullable().optional(),
-    weightUnit: z.enum(['kg', 'pct']).optional()
+    weightUnit: z.enum(['kg', 'pct']).optional(),
+    isTimed: z.boolean().optional()
 }).refine(data => Object.keys(data).length > 0, {
     message: 'At least one field must be provided for update'
 });

@@ -89,6 +89,13 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.BOOLEAN,
             allowNull: false,
             defaultValue: false
+        },
+        // Time-based (hold) set: logs duration_seconds instead of reps × weight.
+        isTimed: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+            field: 'is_timed'
         }
     }, {
         tableName: 'exerciselog'
