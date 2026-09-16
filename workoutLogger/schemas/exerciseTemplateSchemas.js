@@ -13,6 +13,17 @@ const setTemplateSchema = z.object({
     notes: z.string().nullable().optional()
 });
 
+// Which optional fields this exercise shows while it is logged. Set per exercise in the
+// builder; null falls back to the user's profile defaults.
+const fieldConfigSchema = z.object({
+    showRpe: z.boolean().optional(),
+    showRir: z.boolean().optional(),
+    showSetNotes: z.boolean().optional(),
+    showExerciseNotes: z.boolean().optional(),
+    // Superseded by the two above; still accepted so configs saved before the split load.
+    showNotes: z.boolean().optional()
+});
+
 // baseReps (strength) and baseDurationSeconds/baseDistance (cardio) are all optional —
 // the client sends the pair matching the exercise's type. baseSets applies to both.
 // `sets` carries the full per-set prescription; the base_* fields remain as a fallback.
@@ -30,7 +41,8 @@ const createExerciseTemplateSchema = z.object({
     sets: z.array(setTemplateSchema).nullable().optional(),
     notes: z.string().nullable().optional(),
     weightUnit: z.enum(['kg', 'pct']).optional(),
-    isTimed: z.boolean().optional()
+    isTimed: z.boolean().optional(),
+    fieldConfig: fieldConfigSchema.nullable().optional()
 });
 
 const updateExerciseTemplateSchema = z.object({
@@ -47,7 +59,8 @@ const updateExerciseTemplateSchema = z.object({
     sets: z.array(setTemplateSchema).nullable().optional(),
     notes: z.string().nullable().optional(),
     weightUnit: z.enum(['kg', 'pct']).optional(),
-    isTimed: z.boolean().optional()
+    isTimed: z.boolean().optional(),
+    fieldConfig: fieldConfigSchema.nullable().optional()
 }).refine(data => Object.keys(data).length > 0, {
     message: 'At least one field must be provided for update'
 });

@@ -19,6 +19,13 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.TEXT,
             allowNull: true
         },
+        // The session note the plan/template prescribed, shown read-only while logging.
+        // Kept apart from `notes` so editing yours never destroys the prescribed one.
+        targetNotes: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: 'target_notes'
+        },
         sessionDateStart: {
             type: DataTypes.DATE,
             allowNull: true,

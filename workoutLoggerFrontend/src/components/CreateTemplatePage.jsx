@@ -97,7 +97,13 @@ export default function CreateTemplatePage() {
           exerciseId: et.exerciseId,
           orderIndex: idx,
           notes: s.notes ?? '',
+          // Exercise-level note, held on every set row of the exercise and collapsed back
+          // to one value on save (same pattern as weightUnit / fieldConfig).
+          exerciseNotes: et.notes || '',
           weightUnit: et.weightUnit || 'kg',
+          // Null on templates saved before field_config existed; the builder then falls
+          // back to the profile defaults rather than inventing a config for them.
+          fieldConfig: et.fieldConfig || null,
           isTimed,
           Exercise: { name: et.Exercise?.name, type: et.Exercise?.type },
           ...(isCardio
@@ -125,6 +131,15 @@ export default function CreateTemplatePage() {
           rir: from.rir ?? null,
         };
 
+  // A newly added exercise starts from the profile defaults; the per-exercise settings
+  // button then overrides it where this exercise should differ.
+  const defaultFieldConfig = () => ({
+    showRpe: prefs?.showRpe !== false,
+    showRir: prefs?.showRir !== false,
+    showSetNotes: prefs?.showNotes !== false,
+    showExerciseNotes: prefs?.showNotes !== false,
+  });
+
   const handleAddExercise = (exercise) => {
     const isCardio = exercise.type === 'cardio';
     const orderIndex = new Set(logs.map((l) => l.Exercise?.name)).size;
@@ -135,7 +150,9 @@ export default function CreateTemplatePage() {
         exerciseId: exercise.id,
         orderIndex,
         notes: '',
+        exerciseNotes: '',
         weightUnit: 'kg',
+        fieldConfig: defaultFieldConfig(),
         Exercise: { name: exercise.name, type: exercise.type },
         ...blankFields(isCardio),
       },
@@ -154,7 +171,9 @@ export default function CreateTemplatePage() {
         exerciseId: last.exerciseId,
         orderIndex: last.orderIndex,
         notes: '',
+        exerciseNotes: last.exerciseNotes || '',
         weightUnit: last.weightUnit || 'kg',
+        fieldConfig: last.fieldConfig ?? null,
         isTimed,
         Exercise: last.Exercise,
         ...blankFields(isCardio, last),
@@ -175,6 +194,23 @@ export default function CreateTemplatePage() {
 
   const deleteExercise = (exerciseName) =>
     setLogs((prev) => prev.filter((l) => l.Exercise?.name !== exerciseName));
+
+  // Which optional fields this exercise shows when it is logged. Held on every set row of
+  // the exercise (like weightUnit/isTimed) and collapsed back to one value on save.
+  const setFieldConfig = (exerciseName, patch) =>
+    setLogs((prev) =>
+      prev.map((l) =>
+        l.Exercise?.name === exerciseName
+          ? { ...l, fieldConfig: { ...defaultFieldConfig(), ...(l.fieldConfig || {}), ...patch } }
+          : l
+      )
+    );
+
+  // The note that applies to the whole exercise, mirrored onto each of its set rows.
+  const setExerciseNotes = (exerciseName, value) =>
+    setLogs((prev) =>
+      prev.map((l) => (l.Exercise?.name === exerciseName ? { ...l, exerciseNotes: value } : l))
+    );
 
   // Switch an exercise's weight unit (kg ↔ % of 1RM) across all its sets.
   const setWeightUnit = (exerciseName, unit) =>
@@ -202,7 +238,7 @@ export default function CreateTemplatePage() {
     const map = new Map();
     for (const l of logs) {
       const n = l.Exercise?.name;
-      if (!map.has(n)) map.set(n, { name: n, type: l.Exercise?.type, exerciseId: l.exerciseId, weightUnit: l.weightUnit || 'kg', isTimed: !!l.isTimed, order: l.orderIndex ?? 0, sets: [] });
+      if (!map.has(n)) map.set(n, { name: n, type: l.Exercise?.type, exerciseId: l.exerciseId, weightUnit: l.weightUnit || 'kg', isTimed: !!l.isTimed, fieldConfig: l.fieldConfig ?? null, exerciseNotes: l.exerciseNotes || '', order: l.orderIndex ?? 0, sets: [] });
       map.get(n).sets.push(l);
     }
     return [...map.values()].sort((a, b) => a.order - b.order);
@@ -288,6 +324,8 @@ export default function CreateTemplatePage() {
             baseRpe: first.rpe ?? null,
             weightUnit: g.weightUnit,
             isTimed: timed,
+            fieldConfig: g.fieldConfig,
+            notes: g.exerciseNotes?.trim() || null,
             sets,
             ...(isCardio
               ? { baseDurationSeconds: first.durationSeconds ?? null, baseDistance: first.distance ?? null }
@@ -346,6 +384,8 @@ export default function CreateTemplatePage() {
         onReorder={applyOrder}
         onSetWeightUnit={setWeightUnit}
         onSetTimed={setTimed}
+        onSetFieldConfig={setFieldConfig}
+        onSetExerciseNotes={setExerciseNotes}
         prefs={prefs}
         onExerciseCreated={(ex) => setExercises((prev) => (prev.some((e) => e.id === ex.id) ? prev : [...prev, ex]))}
         onExerciseDeleted={(id) => setExercises((prev) => prev.filter((e) => e.id !== id))}

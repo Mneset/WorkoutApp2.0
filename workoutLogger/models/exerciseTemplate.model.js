@@ -87,6 +87,14 @@ module.exports = (sequelize, DataTypes) => {
         notes: {
             type: DataTypes.TEXT,
             allowNull: true
+        },
+        // Which optional fields this exercise shows while being logged:
+        // { showRpe, showRir, showNotes }. Null falls back to the user's profile defaults,
+        // which is how templates saved before this column behave.
+        fieldConfig: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            field: 'field_config'
         }
     }, {
         tableName: 'exercisetemplate',

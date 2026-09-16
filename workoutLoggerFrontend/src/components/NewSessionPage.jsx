@@ -661,6 +661,7 @@ function SessionBuilder({ sessionLogId, editMode = false }) {
       statusEyebrow={statusEyebrow}
       note={sessionNotes}
       onNoteChange={setSessionNotes}
+      targetNote={session?.targetNotes}
       onNoteCommit={commitSessionInfo}
       logs={editTableLogs}
       exercises={exercises}

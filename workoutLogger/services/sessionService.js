@@ -15,6 +15,12 @@ function computeTargetPct(weight, isPct) {
     return null;
 }
 
+// Applied to sets from a template saved before field_config existed. All fields on, which
+// is what those sessions already did (a plan used to force every column on). The point of
+// falling back to a concrete object rather than null is that null means "added freeform",
+// and a legacy plan exercise is still an authored one.
+const DEFAULT_FIELD_CONFIG = { showRpe: true, showRir: true, showNotes: true };
+
 class SessionService {
     constructor(db) {
         this.db = db;
@@ -96,8 +102,10 @@ class SessionService {
                         // Standalone template: just a named session, no plan attribution.
                         sessionData.name = sessionTemplate.name
                     }
-                    // Carry the template's note into the started session as its starting note.
-                    if (sessionTemplate.notes) sessionData.notes = sessionTemplate.notes
+                    // The template's note is the *prescribed* session note, shown read-only
+                    // while logging. It deliberately does not seed `notes`, which stays the
+                    // lifter's own, so editing one never destroys the other.
+                    if (sessionTemplate.notes) sessionData.targetNotes = sessionTemplate.notes
                 }
             }
             
@@ -150,10 +158,17 @@ class SessionService {
                             targetWeightPct: dur ? null : computeTargetPct(set.weight, isPct),
                             targetDurationSeconds: dur ? (set.durationSeconds ?? null) : null,
                             targetDistance: isCardio ? (set.distance ?? null) : null,
-                            notes: set.notes ?? '',
+                            // The lifter's own note starts empty; the plan's rides alongside.
+                            notes: '',
+                            targetNotes: set.notes ?? null,
+                            targetExerciseNotes: exerciseTemplate.notes ?? null,
                             rpe: set.rpe ?? null,
                             rir: dur ? null : (set.rir ?? null),
                             isTimed: timed,
+                            // Carried across so logging never has to read back a template the
+                            // user may since have edited. Non-null also marks the set as
+                            // authored, which is what locks its metric mode while logging.
+                            fieldConfig: exerciseTemplate.fieldConfig ?? DEFAULT_FIELD_CONFIG,
                             sessionLogId: session.id
                         }, { transaction: t })
                     );

@@ -216,12 +216,15 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {/* Show while creating a plan/template — the builders */}
+      {/* Starting point for exercises added in the builders — overridden per exercise there */}
       <Card className="mt-4 p-5">
         <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted">
-          Show while creating a plan / template
+          Defaults for new exercises
         </span>
-        <p className="mt-1 text-sm text-muted">Which fields appear in the plan &amp; template builders.</p>
+        <p className="mt-1 text-sm text-muted">
+          What an exercise starts with when you add it to a plan or template. Change it for one
+          exercise with the settings button on its card in the builder.
+        </p>
         <div className="mt-3 divide-y divide-line">
           {PLAN_TOGGLES.map((t) => (
             <div key={t.key} className="flex items-center justify-between gap-4 py-3">

@@ -9,7 +9,49 @@ import SwipeToDelete from './SwipeToDelete';
 import AccentCard from './AccentCard';
 import OneRepMaxCalcModal from './OneRepMaxCalcModal';
 import { SortableColumn, SortableRow, GripIcon } from './Sortable';
+import ExerciseFieldSettings, { FieldSettingsButton, fieldOn } from './ExerciseFieldSettings';
 import { parseDuration, formatDuration, formatTimeInput, pace } from '../duration';
+
+// Megaphone: marks anything the plan is telling you, at all three levels. It is the one
+// thing the three share — their shape differs by scope, the icon says where they came from.
+const megaphoneGlyph = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m3 11 18-5v12L3 14v-3z" />
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+  </svg>
+);
+
+/**
+ * The session-level note the plan prescribed, read-only. Sits on its own above the lifter's
+ * session note, so it is the widest of the three: a left rule and the megaphone.
+ */
+const PlanNote = ({ children, className = '' }) =>
+  children ? (
+    <div
+      className={`flex items-start gap-2 rounded-lg border-l-[3px] border-clay bg-clay-tint/50 px-3 py-2 ${className}`}
+    >
+      <span className="mt-0.5 flex-shrink-0 text-clay" title="From the plan">
+        {megaphoneGlyph}
+      </span>
+      <p className="min-w-0 text-sm leading-snug text-ink">{children}</p>
+    </div>
+  ) : null;
+
+/**
+ * The exercise-level note, read-only. Deliberately a different shape from the set-level one:
+ * it applies to the whole card, so it reads as a labelled banner under the header rather than
+ * as something hanging off a row.
+ */
+const ExercisePlanNote = ({ children }) =>
+  children ? (
+    <div className="mb-3 rounded-lg border border-clay-tintborder bg-clay-tint/40 px-3 py-2">
+      <span className="mb-0.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-clay">
+        {megaphoneGlyph}
+        Exercise note
+      </span>
+      <p className="text-sm leading-snug text-ink">{children}</p>
+    </div>
+  ) : null;
 
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
@@ -18,13 +60,6 @@ const inputClass =
 // track from shrinking, overflowing the set table on phones.
 const numInputClass =
   'w-full min-w-0 rounded-lg border border-line-strong bg-surface px-1.5 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint sm:px-2';
-
-// Heights of the two stacked lines in a set row (the input line and the "last time" line).
-// Used only to align the phone action buttons with those lines. They mirror the box models
-// of `numInputClass` (16px text on touch, py-2.5, 1px border) and of the last-time box
-// (text-xs, py-1, 1px border). If they drift the buttons sit a pixel or two off, nothing worse.
-const SET_INPUT_LINE_H = 46;
-const SET_LAST_LINE_H = 28;
 
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
@@ -84,6 +119,9 @@ export default function SessionBuilderView({
   note,
   onNoteChange,
   onNoteCommit,
+  // The session note the plan prescribed. Read-only, and separate from `note`, which is the
+  // lifter's own, so editing one never destroys the other.
+  targetNote,
   logs,
   exercises,
   onAddExercise,
@@ -97,6 +135,12 @@ export default function SessionBuilderView({
   onReorder,
   onSetWeightUnit,
   onSetTimed,
+  // Builder only: (exerciseName, patch) => void, sets which optional fields this exercise
+  // shows when it is logged. Its presence is what puts the settings button on the card.
+  onSetFieldConfig,
+  // Builder only: (exerciseName, value) => void, the note that applies to the whole exercise
+  // (as opposed to the per-set notes on each row).
+  onSetExerciseNotes,
   onSetOneRepMax,
   onExerciseCreated,
   onExerciseDeleted,
@@ -107,27 +151,34 @@ export default function SessionBuilderView({
   // Which optional columns show while logging (user preference).
   prefs,
 }) {
-  // The toggle only declutters *freeform* sessions. A session started from a plan/template
-  // (i.e. any set carries a prescribed target) shows the full logging interface, so you can
-  // record/follow the program regardless of your default toggles.
-  const hasValue = (key) => Array.isArray(logs) && logs.some((l) => l[key] != null && l[key] !== '');
-  const fromProgram =
-    !templateMode &&
+  // Which optional fields show is decided *per exercise*, not per session: an exercise that
+  // came from a plan carries the config it was authored with, while one added freeform
+  // follows the profile's logging prefs. Resolved inside the exercise loop below; only
+  // "last time" stays session-wide, since it is purely a viewing preference.
+  const hasValueIn = (rows, key) =>
+    Array.isArray(rows) && rows.some((l) => l[key] != null && l[key] !== '');
+  // A set prescribed by a plan. Only used as a fallback marker for sessions started before
+  // field_config existed, which used to force every column on.
+  const isPrescribed = (l) =>
+    (l.targetReps != null && l.targetReps !== '') ||
+    (l.targetWeight != null && l.targetWeight !== '') ||
+    l.targetWeightPct != null ||
+    l.targetDurationSeconds != null ||
+    l.targetDistance != null;
+  const LEGACY_PLAN_CONFIG = { showRpe: true, showRir: true, showNotes: true };
+  // Metric-modes master gates the per-exercise Weight/Time/1RM% mode toggle (on by default).
+  const metricsOn = prefs?.metricsEnabled !== false;
+  const colLast = prefs?.showLastTime !== false;
+  // The mobile RPE/RIR legend sits above the whole list, so it asks whether *any* set will
+  // show that column rather than resolving per exercise like the tables below do.
+  const legendFor = (key, valueKey) =>
     Array.isArray(logs) &&
     logs.some(
       (l) =>
-        (l.targetReps != null && l.targetReps !== '') ||
-        (l.targetWeight != null && l.targetWeight !== '') ||
-        l.targetWeightPct != null ||
-        l.targetDurationSeconds != null ||
-        l.targetDistance != null
+        (l.fieldConfig || prefs || {})[key] !== false || (l[valueKey] != null && l[valueKey] !== '')
     );
-  // Metric-modes master gates the per-exercise Weight/Time/1RM% mode toggle (on by default).
-  const metricsOn = prefs?.metricsEnabled !== false;
-  const colRpe = prefs?.showRpe !== false || fromProgram || hasValue('rpe');
-  const colRir = prefs?.showRir !== false || fromProgram || hasValue('rir');
-  const colNotes = prefs?.showNotes !== false || fromProgram || hasValue('notes');
-  const colLast = prefs?.showLastTime !== false;
+  const legendRpe = legendFor('showRpe', 'rpe');
+  const legendRir = legendFor('showRir', 'rir');
 
   // A prescribed target → placeholder text (or a dash when there's none).
   const ph = (v) => (v != null && v !== '' ? String(v) : '–');
@@ -142,6 +193,8 @@ export default function SessionBuilderView({
 
   // The set logged at this position the previous time (for the aligned "last time" hint row).
   const lastSetFor = (exerciseId, index) => lastByExercise?.[exerciseId]?.sets?.[index] || null;
+  // Builder only: which exercise's field-settings popover is open (by name).
+  const [settingsFor, setSettingsFor] = useState(null);
   const [pickerType, setPickerType] = useState(null); // null | 'strength' | 'cardio'
   const [oneRmCalc, setOneRmCalc] = useState(null); // { exerciseId, exerciseName } | null
   const [detailsFor, setDetailsFor] = useState(null); // exerciseId with details open
@@ -283,6 +336,9 @@ export default function SessionBuilderView({
           </div>
         </div>
 
+        {/* The plan's session note, read-only and above your own. */}
+        <PlanNote className="mt-5">{targetNote}</PlanNote>
+
         {/* Session notes — optional; collapsed behind a button until wanted. */}
         {showNotes ? (
           <Card className="group mt-5 border border-clay-tintborder bg-surface-2 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -326,9 +382,9 @@ export default function SessionBuilderView({
           <>
             {/* RPE/RIR legend — mobile only (the header tooltips are hover-only); only for
                 the columns actually shown. */}
-            {(colRpe || colRir) && (
+            {(legendRpe || legendRir) && (
               <p className="mt-4 text-center text-[11px] text-muted sm:hidden">
-                {[colRpe && 'RPE = perceived exertion (1–10)', colRir && 'RIR = reps in reserve']
+                {[legendRpe && 'RPE = perceived exertion (1–10)', legendRir && 'RIR = reps in reserve']
                   .filter(Boolean)
                   .join(' · ')}
               </p>
@@ -348,6 +404,32 @@ export default function SessionBuilderView({
                 // Dynamic set-table columns: cardio always shows Pace; strength shows RIR
                 // only if enabled; RPE/Notes follow prefs. Desktop gets a trailing ✕ column;
                 // on mobile Notes drops to its own full-width line and delete is via swipe.
+                // Field config for this exercise. Authored in the builder and carried onto
+                // the logs when the session starts; null means the exercise was added
+                // freeform, so the profile's logging prefs apply instead. A field that
+                // already holds a value always shows, whatever the config says.
+                const authoredCfg =
+                  exLogs[0]?.fieldConfig ||
+                  (!templateMode && exLogs.some(isPrescribed) ? LEGACY_PLAN_CONFIG : null);
+                // Only a *live* session locks anything. In the builder you are the author.
+                const authored = !templateMode && !!authoredCfg;
+                const cfgSrc = authoredCfg || prefs || {};
+                const colRpe = cfgSrc.showRpe !== false || hasValueIn(exLogs, 'rpe');
+                const colRir = cfgSrc.showRir !== false || hasValueIn(exLogs, 'rir');
+                // Notes are two separate things. *Authoring* one is the exercise's own
+                // setting, and only applies in the builder. *Editing* one while logging is
+                // the user's own "while logging" preference. They are independent: a note
+                // the plan carries always shows as a read-only message, whether or not you
+                // are allowed to add your own on top.
+                const notesEditable = templateMode || prefs?.showNotes !== false;
+                const colNotes = templateMode
+                  ? fieldOn(cfgSrc, 'showSetNotes')
+                  : notesEditable ||
+                    hasValueIn(exLogs, 'notes') ||
+                    hasValueIn(exLogs, 'targetNotes');
+                const showNoteBtn = colNotes && notesEditable;
+                // The plan's note for the exercise as a whole, denormalised onto every set.
+                const exerciseNote = templateMode ? null : exLogs[0]?.targetExerciseNotes;
                 const showThird = isCardio || (colRir && !timed);
                 const desktopDelete = !coarse;
                 // Data columns only — the action buttons (note/delete/complete) now live in a
@@ -366,7 +448,7 @@ export default function SessionBuilderView({
                 // Right-hand action column width, so the header lines up with the set rows.
                 // On phones the buttons stack vertically into a single 32px column — the row is
                 // already tall enough for two of them, and that buys ~38px back for the inputs.
-                const actionCount = (colNotes ? 1 : 0) + (desktopDelete ? 1 : 0) + (onToggleComplete ? 1 : 0);
+                const actionCount = (showNoteBtn ? 1 : 0) + (desktopDelete ? 1 : 0) + (onToggleComplete ? 1 : 0);
                 const actionsWidth = !actionCount
                   ? '0px'
                   : narrow
@@ -390,6 +472,9 @@ export default function SessionBuilderView({
                               )}
                               {!isCardio &&
                                 metricsOn &&
+                                // A planned exercise logs in the mode it was authored with;
+                                // only a freeform one can still be switched.
+                                !authored &&
                                 (templateMode || onSetTimed) &&
                                 (() => {
                                   // Only the modes enabled in the profile appear; a live session
@@ -431,6 +516,14 @@ export default function SessionBuilderView({
                                 })()}
                             </div>
                             <div className="flex flex-shrink-0 items-center gap-2">
+                              {onSetFieldConfig && (
+                                <FieldSettingsButton
+                                  open={settingsFor === exerciseName}
+                                  onToggle={() =>
+                                    setSettingsFor((cur) => (cur === exerciseName ? null : exerciseName))
+                                  }
+                                />
+                              )}
                               <button
                                 type="button"
                                 aria-label="Show exercise details"
@@ -489,6 +582,34 @@ export default function SessionBuilderView({
                               </button>
                             </div>
                           </div>
+
+                          <ExercisePlanNote>{exerciseNote}</ExercisePlanNote>
+
+                          {/* Builder: the note that applies to the whole exercise. */}
+                          {templateMode &&
+                            onSetExerciseNotes &&
+                            fieldOn(cfgSrc, 'showExerciseNotes') && (
+                              <div className="mb-3">
+                                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+                                  Exercise note
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Applies to every set, e.g. warm up thoroughly"
+                                  className={`${inputClass} min-w-0`}
+                                  value={exLogs[0]?.exerciseNotes || ''}
+                                  onChange={(e) => onSetExerciseNotes(exerciseName, e.target.value)}
+                                />
+                              </div>
+                            )}
+
+                          {onSetFieldConfig && settingsFor === exerciseName && (
+                            <ExerciseFieldSettings
+                              config={cfgSrc}
+                              hideRir={isCardio || timed}
+                              onChange={(patch) => onSetFieldConfig(exerciseName, patch)}
+                            />
+                          )}
 
                           {detailsFor === exLogs[0]?.exerciseId && (
                             <div className="mb-3 rounded-lg border border-line bg-surface-2 p-3">
@@ -566,8 +687,11 @@ export default function SessionBuilderView({
                                     ? String(ls.weight)
                                     : '';
                                   if (!c1 && !c2) return null;
+                                  // Same box model as `numInputClass` above it, so the "last
+                                  // time" value sits directly under the set input at the same
+                                  // size. `touch-16` takes the bump the input gets on touch.
                                   const boxClass =
-                                    'truncate rounded-md border border-dashed border-line-strong bg-surface-2 px-1 py-1 text-center text-xs font-semibold text-clay-ink';
+                                    'touch-16 truncate rounded-lg border border-dashed border-line-strong bg-surface-2 px-1.5 py-2.5 text-center text-sm font-semibold text-clay-ink sm:px-2';
                                   const rpeVal = ls.rpe != null && ls.rpe !== '' ? String(ls.rpe) : '–';
                                   const rirVal =
                                     !isCardio && ls.rir != null && ls.rir !== '' ? String(ls.rir) : '–';
@@ -589,7 +713,7 @@ export default function SessionBuilderView({
                                     </div>
                                   );
                                 })();
-                                const noteBtn = colNotes ? (
+                                const noteBtn = showNoteBtn ? (
                                   <button
                                     type="button"
                                     title={noteShown(log) ? 'Hide note' : 'Add note'}
@@ -630,9 +754,6 @@ export default function SessionBuilderView({
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
                                   </button>
                                 ) : null;
-                                // Exactly two buttons over exactly two lines on a phone: give each
-                                // one its own line instead of centring the pair against both.
-                                const splitActions = narrow && !!lastRow && !!noteBtn && !!completeBtn;
                                 return (
                                 <SwipeToDelete
                                   key={log.id ?? `tmp-${index}`}
@@ -818,50 +939,83 @@ export default function SessionBuilderView({
                                         Reps/Kg (or Time/Distance) inputs. */}
                                     {lastRow}
                                   </div>
-                                  {colNotes && noteShown(log) && (
-                                    <div
-                                      style={{ gridTemplateColumns: gridCols }}
-                                      className="grid items-center gap-1 pb-3 sm:gap-2"
-                                    >
-                                      <div className="flex items-center justify-center text-muted" aria-hidden="true">
-                                        {penGlyph}
-                                      </div>
-                                      <input
-                                        type="text"
-                                        placeholder="Notes"
-                                        autoFocus={noteOpen[log.id] === true}
-                                        style={{ gridColumn: '2 / -1' }}
-                                        className={`${inputClass} min-w-0`}
-                                        value={log.notes || ''}
-                                        onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
-                                        onBlur={() => commit(log)}
-                                      />
+                                  {/* The plan's note for this set and the lifter's own: same
+                                      set, two voices. The plan's is read-only and sits on top;
+                                      yours is the field under it. Either can be absent. */}
+                                  {(() => {
+                                    const ownNote = colNotes && notesEditable && noteShown(log);
+                                    if (!log.targetNotes && !ownNote) return null;
+                                    // Two rows of the same shape, distinguished only by their
+                                    // icon and fill: the plan speaks in clay, you answer in
+                                    // neutral. Both align under the inputs, icon in the set
+                                    // column, so the set reads as one stack.
+                                    // The bottom padding belongs to whichever row ends up last,
+                                    // not to a fixed one: with notes toggled off the plan's is
+                                    // the only row, and hanging `pb-3` on the note input left it
+                                    // flush against the set divider.
+                                    const row = 'mt-1 grid items-start gap-1 sm:gap-2';
+                                    const lastRowPad = 'pb-3';
+                                    // Identical box model on both, border included (transparent
+                                    // on the plan's), so the two sit at exactly the same height.
+                                    // `note-block` gives the read-only one the same 16px bump
+                                    // styles.css applies to inputs on touch.
+                                    const block =
+                                      'note-block min-w-0 rounded-md border px-3 py-2 font-sans text-sm font-normal leading-snug';
+                                    return (
+                                      <>
+                                        {log.targetNotes && (
+                                          <div
+                                            style={{ gridTemplateColumns: gridCols }}
+                                            className={`${row} ${ownNote ? '' : lastRowPad}`}
+                                          >
+                                            <div className="flex justify-center pt-1.5 text-clay" title="From the plan">
+                                              {megaphoneGlyph}
+                                            </div>
+                                            <p
+                                              style={{ gridColumn: '2 / -1' }}
+                                              className={`${block} border-transparent bg-clay-tint/60 text-clay-ink`}
+                                            >
+                                              {log.targetNotes}
+                                            </p>
+                                          </div>
+                                        )}
+                                        {ownNote && (
+                                          <div
+                                            style={{ gridTemplateColumns: gridCols }}
+                                            className={`${row} ${lastRowPad}`}
+                                          >
+                                            <div className="flex justify-center pt-1.5 text-muted" aria-hidden="true">
+                                              {penGlyph}
+                                            </div>
+                                            <input
+                                              type="text"
+                                              placeholder={log.targetNotes ? 'Your note' : 'Notes'}
+                                              autoFocus={noteOpen[log.id] === true}
+                                              style={{ gridColumn: '2 / -1' }}
+                                              className={`${block} border-line bg-surface-2 text-ink focus:border-clay focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-clay-tint`}
+                                              value={log.notes || ''}
+                                              onChange={(e) => onUpdateLog(log, { notes: e.target.value })}
+                                              onBlur={() => commit(log)}
+                                            />
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                  </div>
+                                  {actionsWidth !== '0px' && (
+                                    // Centred on the set as a whole rather than pinned to
+                                    // particular lines: a set can be anywhere from one line to
+                                    // four (inputs, last time, the plan's note, yours), so the
+                                    // parent's `items-center` is what keeps them looking right
+                                    // at every height. `py-1` only bites on a one-line set,
+                                    // where the buttons would otherwise touch the dividers.
+                                    <div className="flex flex-shrink-0 flex-col items-center gap-1 py-1 sm:flex-row sm:gap-1.5 sm:py-0">
+                                      {noteBtn}
+                                      {deleteBtn}
+                                      {completeBtn}
                                     </div>
                                   )}
-                                  </div>
-                                  {actionsWidth !== '0px' &&
-                                    (splitActions ? (
-                                      // One button per line. `self-start` plus the same py-3 as the
-                                      // data grid means the two stay aligned even when a set adds
-                                      // bottom padding for its 1RM% label.
-                                      <div className="flex flex-shrink-0 flex-col items-center self-start py-3">
-                                        <div className="flex items-center" style={{ height: SET_INPUT_LINE_H }}>
-                                          {noteBtn}
-                                        </div>
-                                        <div className="mt-1 flex items-center" style={{ height: SET_LAST_LINE_H }}>
-                                          {completeBtn}
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      // `py-1` only bites when the buttons are the tallest thing in
-                                      // the row, i.e. no "last time" line; without it they sit flush
-                                      // against the set dividers.
-                                      <div className="flex flex-shrink-0 flex-col items-center gap-1 py-1 sm:flex-row sm:gap-1.5 sm:py-0">
-                                        {noteBtn}
-                                        {deleteBtn}
-                                        {completeBtn}
-                                      </div>
-                                    ))}
                                   </div>
                                 </SwipeToDelete>
                                 );

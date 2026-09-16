@@ -19,8 +19,24 @@ const createExerciseLogSchema = z.object({
     targetWeightPct: z.coerce.number().nonnegative().nullable().optional(),
     targetDurationSeconds: z.coerce.number().int().nonnegative().nullable().optional(),
     targetDistance: z.coerce.number().nonnegative().nullable().optional(),
+    // The plan's notes, read-only while logging (see `notes` for the lifter's own).
+    targetNotes: z.string().nullable().optional(),
+    targetExerciseNotes: z.string().nullable().optional(),
     completed: z.boolean().optional(),
     isTimed: z.boolean().optional(),
+    // Carried from the plan exercise. Left null for a set added freeform mid-session, which
+    // is what keeps its metric mode editable and falls it back to the profile log prefs.
+    fieldConfig: z
+        .object({
+            showRpe: z.boolean().optional(),
+            showRir: z.boolean().optional(),
+            showSetNotes: z.boolean().optional(),
+            showExerciseNotes: z.boolean().optional(),
+            // Superseded by the two above; kept so pre-split configs still validate.
+            showNotes: z.boolean().optional()
+        })
+        .nullable()
+        .optional(),
     sessionLogId: z.number().int().positive('sessionLogId is required')
 });
 

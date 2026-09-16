@@ -13,10 +13,10 @@ const { success, error } = require('../utils/response');
 router.use(checkForUser);
 
 router.post('/', validate(createExerciseLogSchema), async (req, res) => {
-    const { exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, isTimed, sessionLogId } = req.body;
+    const { exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, isTimed, fieldConfig, sessionLogId } = req.body;
     try {
         const exerciseLog = await exerciseLogService.addExerciseLogToSession({
-            exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, isTimed, sessionLogId,
+            exerciseId, setId, reps, weight, durationSeconds, distance, orderIndex, notes, rpe, rir, targetReps, targetWeight, targetWeightPct, targetDurationSeconds, targetDistance, isTimed, fieldConfig, sessionLogId,
         });
         return success(res, exerciseLog, 201);
     } catch (err) {

@@ -79,6 +79,20 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             field: 'target_distance'
         },
+        // The plan's note for this set, shown read-only while logging. Separate from `notes`
+        // so writing your own never destroys the prescribed one.
+        targetNotes: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: 'target_notes'
+        },
+        // The plan's note for the exercise as a whole, denormalised onto every set row (read
+        // from the first) the same way is_timed and field_config are.
+        targetExerciseNotes: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+            field: 'target_exercise_notes'
+        },
         sessionLogId: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -96,6 +110,14 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: false,
             field: 'is_timed'
+        },
+        // { showRpe, showRir, showNotes } copied from the plan exercise when the session
+        // was started. Null means this set was added freeform mid-session, in which case
+        // the user's "while logging" profile prefs apply and the metric mode stays editable.
+        fieldConfig: {
+            type: DataTypes.JSON,
+            allowNull: true,
+            field: 'field_config'
         }
     }, {
         tableName: 'exerciselog'

@@ -8,6 +8,7 @@ import Button from './Button';
 import ScoreSelect from './ScoreSelect';
 import ExercisePickerModal from './ExercisePickerModal';
 import { SortableColumn, SortableRow, GripIcon } from './Sortable';
+import ExerciseFieldSettings, { FieldSettingsButton, fieldOn } from './ExerciseFieldSettings';
 import { parseDuration, formatDuration, formatTimeInput } from '../duration';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -16,6 +17,13 @@ const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Num
 
 const inputClass =
   'rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
+
+// The set-table inputs need their own class rather than `inputClass` plus an override:
+// both would emit a px-* utility of equal specificity, so which one won came down to
+// stylesheet order and `px-3` was winning. `min-w-0` lets the grid track shrink below the
+// input's intrinsic width instead of overflowing.
+const numInputClass =
+  'w-full min-w-0 rounded-lg border border-line-strong bg-surface px-1.5 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint sm:px-2';
 
 // RPE: 1–10 in 0.5 steps. RIR: 1–10 in whole steps. Both optional (blank = not set).
 const RPE_OPTIONS = Array.from({ length: 19 }, (_, i) => 1 + i * 0.5);
@@ -29,11 +37,12 @@ export default function CreatePlanPage() {
   const { getToken } = useAuth();
   const { profile } = useUserProfile();
   const prefs = profile?.preferences || null;
-  // "Show while creating" prefs gate the plan builder's columns; the Metric modes master
-  // gates the Weight/Time/1RM% toggle.
+  // The Metric modes master gates the Weight/Time/1RM% toggle. Which optional columns show
+  // is now per exercise (see `exCfg` in the exercise loop), with the profile prefs as the
+  // starting point for a newly added one.
   const metricsOn = prefs?.metricsEnabled !== false;
-  const colRpe = prefs?.showRpe !== false;
-  const colRir = prefs?.showRir !== false;
+  // Which exercise's field-settings panel is open (by tempId).
+  const [settingsFor, setSettingsFor] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeId } = useParams();
@@ -56,12 +65,23 @@ export default function CreatePlanPage() {
     () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
   );
 
+  // Phone-width layout: the set table trades padding for input width below this.
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(max-width: 639px)').matches
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(pointer: coarse)');
+    const mqNarrow = window.matchMedia('(max-width: 639px)');
     const onChange = (e) => setCoarse(e.matches);
+    const onNarrow = (e) => setNarrow(e.matches);
     mq.addEventListener?.('change', onChange);
-    return () => mq.removeEventListener?.('change', onChange);
+    mqNarrow.addEventListener?.('change', onNarrow);
+    return () => {
+      mq.removeEventListener?.('change', onChange);
+      mqNarrow.removeEventListener?.('change', onNarrow);
+    };
   }, []);
 
   useEffect(() => {
@@ -131,6 +151,8 @@ export default function CreatePlanPage() {
               type: isCardio ? 'cardio' : 'strength',
               notes: et.notes || '',
               weightUnit: et.weightUnit || 'kg',
+              // Null on plans saved before field_config existed; falls back to the profile.
+              fieldConfig: et.fieldConfig || null,
               isTimed,
               sets: sets.map((s) =>
                 isCardio || isTimed
@@ -138,8 +160,15 @@ export default function CreatePlanPage() {
                       durationSeconds: s.durationSeconds ? formatDuration(s.durationSeconds) : '',
                       distance: s.distance ?? '',
                       rpe: s.rpe ?? null,
+                      notes: s.notes ?? '',
                     }
-                  : { reps: s.reps ?? '', weight: s.weight ?? '', rpe: s.rpe ?? null, rir: s.rir ?? null }
+                  : {
+                      reps: s.reps ?? '',
+                      weight: s.weight ?? '',
+                      rpe: s.rpe ?? null,
+                      rir: s.rir ?? null,
+                      notes: s.notes ?? '',
+                    }
               ),
             };
           }),
@@ -171,15 +200,18 @@ export default function CreatePlanPage() {
   };
 
   // A blank set row, seeded from `from` (used to copy the previous set's values).
+  // A new set starts with an empty note rather than copying the previous set's: a note is
+  // usually specific to the set it was written on.
   const blankSet = (isCardio, from = {}) =>
     isCardio
-      ? { durationSeconds: from.durationSeconds || '', distance: from.distance || '', rpe: from.rpe || '' }
+      ? { durationSeconds: from.durationSeconds || '', distance: from.distance || '', rpe: from.rpe || '', notes: '' }
       : {
           reps: from.reps || '',
           weight: from.weight || '',
           durationSeconds: from.durationSeconds || '',
           rpe: from.rpe || '',
           rir: from.rir || '',
+          notes: '',
         };
 
   // Add an exercise picked from the modal to a template day (starts with one set).
@@ -200,6 +232,13 @@ export default function CreatePlanPage() {
               type: isCardio ? 'cardio' : 'strength',
               notes: '',
               weightUnit: 'kg',
+              // Starts from the profile defaults; the gear button overrides it per exercise.
+              fieldConfig: {
+                showRpe: prefs?.showRpe !== false,
+                showRir: prefs?.showRir !== false,
+                showSetNotes: prefs?.showNotes !== false,
+                showExerciseNotes: prefs?.showNotes !== false,
+              },
               sets: [blankSet(isCardio)],
             },
           ],
@@ -395,11 +434,13 @@ export default function CreatePlanPage() {
                   durationSeconds: parseDuration(set.durationSeconds),
                   distance: numOrNull(set.distance),
                   rpe: numOrNull(set.rpe),
+                  notes: set.notes?.trim() || null,
                 }
               : timed
               ? {
                   durationSeconds: parseDuration(set.durationSeconds),
                   rpe: numOrNull(set.rpe),
+                  notes: set.notes?.trim() || null,
                 }
               : {
                   // Reps kept as a string so a range ("8-12") survives; blank → null.
@@ -407,6 +448,7 @@ export default function CreatePlanPage() {
                   weight: Number(set.weight) || null,
                   rpe: numOrNull(set.rpe),
                   rir: numOrNull(set.rir),
+                  notes: set.notes?.trim() || null,
                 }
           );
           // Representative base_* values (from set 1) keep legacy consumers/fallbacks sane.
@@ -424,6 +466,7 @@ export default function CreatePlanPage() {
               baseRpe: first.rpe ?? null,
               weightUnit: ex.weightUnit || 'kg',
               isTimed: timed,
+              fieldConfig: ex.fieldConfig || null,
               sets,
               notes: ex.notes?.trim() || null,
               ...(isCardio
@@ -456,14 +499,14 @@ export default function CreatePlanPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="py-16 text-center text-sm text-muted">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <span
         onClick={() => navigate('/workout-plan')}
         className="cursor-pointer text-[13px] font-semibold text-clay hover:text-clay-hover"
@@ -515,7 +558,7 @@ export default function CreatePlanPage() {
       </div>
 
       {sessionTemplates.map((st) => (
-        <Card key={st.tempId} className="mb-4 p-5">
+        <Card key={st.tempId} className="mb-4 p-3 sm:p-5">
           <div className="mb-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">
             <input
               type="text"
@@ -565,14 +608,25 @@ export default function CreatePlanPage() {
               ex.exerciseName ||
               exercises.find((x) => x.id === Number(ex.exerciseId))?.name ||
               'Exercise';
+            // Which optional fields this exercise carries, set by its own gear button.
+            // Null on plans saved before field_config existed, which fall back to the profile.
+            const exCfg = ex.fieldConfig || prefs || {};
+            const colRpe = exCfg.showRpe !== false;
+            const colRir = exCfg.showRir !== false;
             // Columns: Set, the metric input(s) (Time, or Reps + Kg/Km), then RPE / RIR
             // (RIR only for reps mode), then delete.
+            // `minmax(0, …)` rather than a bare `fr`: an auto min track inherits the inputs'
+            // intrinsic width and refuses to shrink, which on a phone clips them to ~2 digits.
+            // Reps/weight hold up to five characters ("10-12", "102.5"); RPE/RIR at most
+            // three, so on a phone they give up some of their share.
+            const wide = narrow ? 'minmax(0, 1.15fr)' : 'minmax(0, 1fr)';
+            const slim = narrow ? 'minmax(0, 0.85fr)' : 'minmax(0, 1fr)';
             const gridTemplate = [
-              '28px',
-              ...(timed ? ['1fr'] : ['1fr', '1fr']),
-              ...(colRpe ? ['1fr'] : []),
-              ...(!isCardio && !timed && colRir ? ['1fr'] : []),
-              '28px',
+              narrow ? '26px' : '28px',
+              ...(timed ? [wide] : [wide, wide]),
+              ...(colRpe ? [slim] : []),
+              ...(!isCardio && !timed && colRir ? [slim] : []),
+              narrow ? '26px' : '28px',
             ].join(' ');
             return (
             <SortableRow key={ex.tempId} id={ex.tempId}>
@@ -580,9 +634,9 @@ export default function CreatePlanPage() {
             <div
               ref={setNodeRef}
               style={style}
-              className={`mb-2 rounded-lg border px-3.5 py-3 ${isDragging ? 'border-clay shadow-lg' : 'border-line'}`}
+              className={`mb-2 rounded-lg border px-2 py-3 sm:px-3.5 ${isDragging ? 'border-clay shadow-lg' : 'border-line'}`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <span className="w-4 shrink-0 font-semibold text-clay">{idx + 1}</span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium text-ink">{exName}</div>
@@ -625,6 +679,10 @@ export default function CreatePlanPage() {
                     })()
                   )}
                 </div>
+                <FieldSettingsButton
+                  open={settingsFor === ex.tempId}
+                  onToggle={() => setSettingsFor((cur) => (cur === ex.tempId ? null : ex.tempId))}
+                />
                 {coarse ? (
                   <button
                     type="button"
@@ -668,12 +726,34 @@ export default function CreatePlanPage() {
                 </button>
               </div>
 
+              {settingsFor === ex.tempId && (
+                <div className="mt-3">
+                  <ExerciseFieldSettings
+                    config={exCfg}
+                    hideRir={isCardio || timed}
+                    onChange={(patch) =>
+                      mapExercise(st.tempId, ex.tempId, (e) => ({
+                        ...e,
+                        fieldConfig: {
+                          showRpe: prefs?.showRpe !== false,
+                          showRir: prefs?.showRir !== false,
+                          showSetNotes: prefs?.showNotes !== false,
+                          showExerciseNotes: prefs?.showNotes !== false,
+                          ...(e.fieldConfig || {}),
+                          ...patch,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+              )}
+
               {!isSorting && (
               <div className="mt-3">
                 {/* Column headers */}
                 <div
                   style={{ gridTemplateColumns: gridTemplate }}
-                  className="grid items-center gap-1.5 border-b border-line pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted"
+                  className="grid items-center gap-1 border-b border-line pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted sm:gap-1.5"
                 >
                   <span>Set</span>
                   {timed ? (
@@ -689,12 +769,13 @@ export default function CreatePlanPage() {
                   <span />
                 </div>
 
-                {/* One row per prescribed set */}
+                {/* One row per prescribed set, with its note on a line of its own below —
+                    the set row is a fixed grid and a note needs the full width. */}
                 {ex.sets.map((set, sIdx) => (
+                  <React.Fragment key={sIdx}>
                   <div
-                    key={sIdx}
                     style={{ gridTemplateColumns: gridTemplate }}
-                    className={`grid items-center gap-1.5 py-1.5 ${
+                    className={`grid items-center gap-1 py-1.5 sm:gap-1.5 ${
                       sIdx > 0 ? 'border-t border-line' : ''
                     }`}
                   >
@@ -706,7 +787,7 @@ export default function CreatePlanPage() {
                         type="text"
                         inputMode="numeric"
                         placeholder="mm:ss"
-                        className={`${inputClass} w-full px-1.5 text-center`}
+                        className={numInputClass}
                         value={set.durationSeconds || ''}
                         onChange={(e) =>
                           updateSetField(st.tempId, ex.tempId, sIdx, 'durationSeconds', formatTimeInput(e.target.value))
@@ -717,7 +798,7 @@ export default function CreatePlanPage() {
                         type="text"
                         inputMode="numeric"
                         placeholder="mm:ss"
-                        className={`${inputClass} w-full px-1.5 text-center`}
+                        className={numInputClass}
                         value={set.durationSeconds}
                         onChange={(e) =>
                           updateSetField(st.tempId, ex.tempId, sIdx, 'durationSeconds', formatTimeInput(e.target.value))
@@ -727,7 +808,7 @@ export default function CreatePlanPage() {
                       <input
                         type="text"
                         placeholder="e.g. 8-12"
-                        className={`${inputClass} w-full px-1.5 text-center`}
+                        className={numInputClass}
                         value={set.reps}
                         onChange={(e) => {
                           // A single number or a range — digits and "-" only.
@@ -743,7 +824,7 @@ export default function CreatePlanPage() {
                         min="0"
                         step="0.01"
                         placeholder="–"
-                        className={`${inputClass} w-full px-1.5 text-center`}
+                        className={numInputClass}
                         value={set.distance}
                         onChange={(e) => {
                           if (Number(e.target.value) < 0) return;
@@ -757,7 +838,7 @@ export default function CreatePlanPage() {
                         step="0.01"
                         inputMode="decimal"
                         placeholder="–"
-                        className={`${inputClass} w-full px-1.5 text-center`}
+                        className={numInputClass}
                         value={set.weight}
                         onChange={(e) => {
                           if (Number(e.target.value) < 0) return;
@@ -789,6 +870,18 @@ export default function CreatePlanPage() {
                       ✕
                     </button>
                   </div>
+                  {fieldOn(exCfg, 'showSetNotes') && (
+                    <input
+                      type="text"
+                      className={`${inputClass} mb-1 w-full`}
+                      placeholder={`Note for set ${sIdx + 1} (optional)`}
+                      value={set.notes || ''}
+                      onChange={(e) =>
+                        updateSetField(st.tempId, ex.tempId, sIdx, 'notes', e.target.value)
+                      }
+                    />
+                  )}
+                  </React.Fragment>
                 ))}
 
                 <button
@@ -799,15 +892,17 @@ export default function CreatePlanPage() {
                   + Add set
                 </button>
 
-                <input
-                  type="text"
-                  className={`${inputClass} mt-2 w-full`}
-                  placeholder="Exercise notes (optional) — e.g. tempo, form cues"
-                  value={ex.notes}
-                  onChange={(e) =>
-                    mapExercise(st.tempId, ex.tempId, (en) => ({ ...en, notes: e.target.value }))
-                  }
-                />
+                {fieldOn(exCfg, 'showExerciseNotes') && (
+                  <input
+                    type="text"
+                    className={`${inputClass} mt-2 w-full`}
+                    placeholder="Exercise note (optional) — applies to every set"
+                    value={ex.notes}
+                    onChange={(e) =>
+                      mapExercise(st.tempId, ex.tempId, (en) => ({ ...en, notes: e.target.value }))
+                    }
+                  />
+                )}
               </div>
               )}
             </div>

@@ -43,4 +43,16 @@
   textarea {
     font-size: 16px;
   }
+  /* The per-set note input is the one deliberate exception: it sits directly under the
+     read-only plan note and has to match it, so it stays at 14px rather than dragging that
+     note up to 16px. The trade is that focusing it CAN trigger the iOS zoom this block
+     otherwise prevents. `input.note-block` outranks the bare `input` above. */
+  input.note-block {
+    font-size: 14px;
+  }
+  /* The reverse case: a non-input that has to line up with an input this block already
+     bumped to 16px, e.g. the "last time" boxes sitting under the set inputs. */
+  .touch-16 {
+    font-size: 16px;
+  }
 }
