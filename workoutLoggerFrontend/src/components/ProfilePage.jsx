@@ -18,7 +18,6 @@ const DEFAULT_PREFS = {
   showRpe: true,
   showRir: true,
   showNotes: true,
-  showLastTime: true,
   // Logging (live session) context
   logRpe: true,
   logRir: true,
@@ -36,12 +35,12 @@ const LOG_TOGGLES = [
   { key: 'logLast', label: 'Last time', hint: 'Previous-session reference under each set' },
 ];
 
-// Optional columns shown while building a plan or template.
+// Optional columns shown while building a plan or template. No "Last time" here: a
+// previous-session reference only means something while logging, not while planning.
 const PLAN_TOGGLES = [
   { key: 'showRpe', label: 'RPE', hint: 'Rate of perceived exertion column' },
   { key: 'showRir', label: 'RIR', hint: 'Reps in reserve column' },
   { key: 'showNotes', label: 'Notes', hint: 'Per-set notes column' },
-  { key: 'showLastTime', label: 'Last time', hint: 'Previous-session reference under each set' },
 ];
 
 // The three per-exercise logging modes offered by the Weight/Time/1RM% toggle in the builders.

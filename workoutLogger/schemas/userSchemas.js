@@ -18,7 +18,6 @@ const updateProfileSchema = z.object({
         showRpe: z.boolean().optional(),
         showRir: z.boolean().optional(),
         showNotes: z.boolean().optional(),
-        showLastTime: z.boolean().optional(),
         // Logging (live session) context
         logRpe: z.boolean().optional(),
         logRir: z.boolean().optional(),

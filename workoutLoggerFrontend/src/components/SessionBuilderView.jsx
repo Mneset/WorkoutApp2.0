@@ -19,6 +19,13 @@ const inputClass =
 const numInputClass =
   'w-full min-w-0 rounded-lg border border-line-strong bg-surface px-1.5 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint sm:px-2';
 
+// Heights of the two stacked lines in a set row (the input line and the "last time" line).
+// Used only to align the phone action buttons with those lines. They mirror the box models
+// of `numInputClass` (16px text on touch, py-2.5, 1px border) and of the last-time box
+// (text-xs, py-1, 1px border). If they drift the buttons sit a pixel or two off, nothing worse.
+const SET_INPUT_LINE_H = 46;
+const SET_LAST_LINE_H = 28;
+
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
 
@@ -532,7 +539,101 @@ export default function SessionBuilderView({
                               </div>
 
                               {/* Set rows */}
-                              {exLogs.map((log, index) => (
+                              {exLogs.map((log, index) => {
+                                // Built up front rather than inline, so the action buttons below
+                                // can know whether a "last time" line exists and line up with it.
+                                const lastRow = (() => {
+                                  if (templateMode || !colLast) return null;
+                                  const ls = lastSetFor(log.exerciseId, index);
+                                  if (!ls) return null;
+                                  const c1 =
+                                    isCardio || timed
+                                      ? ls.durationSeconds
+                                        ? formatDuration(ls.durationSeconds)
+                                        : ''
+                                      : ls.reps != null && ls.reps !== ''
+                                      ? String(ls.reps)
+                                      : '';
+                                  // No unit suffix — the column header already reads Kg/Km, and
+                                  // " kg" is what pushed these boxes into an ellipsis.
+                                  const c2 = timed
+                                    ? null
+                                    : isCardio
+                                    ? ls.distance != null && ls.distance !== ''
+                                      ? String(ls.distance)
+                                      : ''
+                                    : ls.weight != null && Number(ls.weight) > 0
+                                    ? String(ls.weight)
+                                    : '';
+                                  if (!c1 && !c2) return null;
+                                  const boxClass =
+                                    'truncate rounded-md border border-dashed border-line-strong bg-surface-2 px-1 py-1 text-center text-xs font-semibold text-clay-ink';
+                                  const rpeVal = ls.rpe != null && ls.rpe !== '' ? String(ls.rpe) : '–';
+                                  const rirVal =
+                                    !isCardio && ls.rir != null && ls.rir !== '' ? String(ls.rir) : '–';
+                                  return (
+                                    <div
+                                      style={{ gridColumn: '1 / -1', gridTemplateColumns: gridCols }}
+                                      className="mt-1 grid items-center gap-1 sm:gap-2"
+                                      title="Last time"
+                                    >
+                                      <div className="flex justify-center text-muted" aria-label="Last time">
+                                        {historyGlyph}
+                                      </div>
+                                      <div className={boxClass} style={timed ? { gridColumn: 'span 2' } : undefined}>
+                                        {c1 || '–'}
+                                      </div>
+                                      {!timed && <div className={boxClass}>{c2 || '–'}</div>}
+                                      {colRpe && <div className={boxClass}>{rpeVal}</div>}
+                                      {showThird && <div className={boxClass}>{isCardio ? '–' : rirVal}</div>}
+                                    </div>
+                                  );
+                                })();
+                                const noteBtn = colNotes ? (
+                                  <button
+                                    type="button"
+                                    title={noteShown(log) ? 'Hide note' : 'Add note'}
+                                    aria-label={noteShown(log) ? 'Hide note' : 'Add note'}
+                                    onClick={() => setNoteShown(log, !noteShown(log))}
+                                    className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${
+                                      noteShown(log)
+                                        ? 'border-clay bg-clay-tint text-clay'
+                                        : 'border-line-strong text-muted hover:border-clay hover:text-clay'
+                                    }`}
+                                  >
+                                    {penGlyph}
+                                  </button>
+                                ) : null;
+                                const deleteBtn = desktopDelete ? (
+                                  <button
+                                    type="button"
+                                    title="Delete set"
+                                    onClick={() => onDeleteSet(log)}
+                                    className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
+                                  >
+                                    ✕
+                                  </button>
+                                ) : null;
+                                const completeBtn = onToggleComplete ? (
+                                  <button
+                                    type="button"
+                                    title={log.completed ? 'Mark set not done' : 'Mark set done'}
+                                    aria-label={log.completed ? 'Mark set not done' : 'Mark set done'}
+                                    aria-pressed={!!log.completed}
+                                    onClick={() => onToggleComplete(log)}
+                                    className={`grid h-8 w-8 place-items-center rounded-full border-2 transition-colors ${
+                                      log.completed
+                                        ? 'border-clay bg-clay text-white'
+                                        : 'border-line-strong text-line-strong hover:border-clay hover:text-clay'
+                                    }`}
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+                                  </button>
+                                ) : null;
+                                // Exactly two buttons over exactly two lines on a phone: give each
+                                // one its own line instead of centring the pair against both.
+                                const splitActions = narrow && !!lastRow && !!noteBtn && !!completeBtn;
+                                return (
                                 <SwipeToDelete
                                   key={log.id ?? `tmp-${index}`}
                                   enabled={coarse}
@@ -715,57 +816,7 @@ export default function SessionBuilderView({
                                       ))}
                                     {/* "Last time" reference for this set, aligned under the
                                         Reps/Kg (or Time/Distance) inputs. */}
-                                    {!templateMode &&
-                                      colLast &&
-                                      (() => {
-                                        const ls = lastSetFor(log.exerciseId, index);
-                                        if (!ls) return null;
-                                        const c1 =
-                                          isCardio || timed
-                                            ? ls.durationSeconds
-                                              ? formatDuration(ls.durationSeconds)
-                                              : ''
-                                            : ls.reps != null && ls.reps !== ''
-                                            ? String(ls.reps)
-                                            : '';
-                                        // No unit suffix — the column header already reads Kg/Km,
-                                        // and " kg" is what pushed these boxes into an ellipsis.
-                                        const c2 = timed
-                                          ? null
-                                          : isCardio
-                                          ? ls.distance != null && ls.distance !== ''
-                                            ? String(ls.distance)
-                                            : ''
-                                          : ls.weight != null && Number(ls.weight) > 0
-                                          ? String(ls.weight)
-                                          : '';
-                                        if (!c1 && !c2) return null;
-                                        const boxClass =
-                                          'truncate rounded-md border border-dashed border-line-strong bg-surface-2 px-1 py-1 text-center text-xs font-semibold text-clay-ink';
-                                        const rpeVal =
-                                          ls.rpe != null && ls.rpe !== '' ? String(ls.rpe) : '–';
-                                        const rirVal =
-                                          !isCardio && ls.rir != null && ls.rir !== '' ? String(ls.rir) : '–';
-                                        return (
-                                          <div
-                                            style={{ gridColumn: '1 / -1', gridTemplateColumns: gridCols }}
-                                            className="mt-1 grid items-center gap-1 sm:gap-2"
-                                            title="Last time"
-                                          >
-                                            <div className="flex justify-center text-muted" aria-label="Last time">
-                                              {historyGlyph}
-                                            </div>
-                                            <div className={boxClass} style={timed ? { gridColumn: 'span 2' } : undefined}>
-                                              {c1 || '–'}
-                                            </div>
-                                            {!timed && <div className={boxClass}>{c2 || '–'}</div>}
-                                            {colRpe && <div className={boxClass}>{rpeVal}</div>}
-                                            {showThird && (
-                                              <div className={boxClass}>{isCardio ? '–' : rirVal}</div>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
+                                    {lastRow}
                                   </div>
                                   {colNotes && noteShown(log) && (
                                     <div
@@ -788,54 +839,33 @@ export default function SessionBuilderView({
                                     </div>
                                   )}
                                   </div>
-                                  {actionsWidth !== '0px' && (
-                                    <div className="flex flex-shrink-0 flex-col items-center gap-1 sm:flex-row sm:gap-1.5">
-                                      {colNotes && (
-                                        <button
-                                          type="button"
-                                          title={noteShown(log) ? 'Hide note' : 'Add note'}
-                                          aria-label={noteShown(log) ? 'Hide note' : 'Add note'}
-                                          onClick={() => setNoteShown(log, !noteShown(log))}
-                                          className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${
-                                            noteShown(log)
-                                              ? 'border-clay bg-clay-tint text-clay'
-                                              : 'border-line-strong text-muted hover:border-clay hover:text-clay'
-                                          }`}
-                                        >
-                                          {penGlyph}
-                                        </button>
-                                      )}
-                                      {desktopDelete && (
-                                        <button
-                                          type="button"
-                                          title="Delete set"
-                                          onClick={() => onDeleteSet(log)}
-                                          className="grid h-8 w-8 place-items-center rounded-lg border border-line-strong text-ink transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger"
-                                        >
-                                          ✕
-                                        </button>
-                                      )}
-                                      {onToggleComplete && (
-                                        <button
-                                          type="button"
-                                          title={log.completed ? 'Mark set not done' : 'Mark set done'}
-                                          aria-label={log.completed ? 'Mark set not done' : 'Mark set done'}
-                                          aria-pressed={!!log.completed}
-                                          onClick={() => onToggleComplete(log)}
-                                          className={`grid h-8 w-8 place-items-center rounded-full border-2 transition-colors ${
-                                            log.completed
-                                              ? 'border-clay bg-clay text-white'
-                                              : 'border-line-strong text-line-strong hover:border-clay hover:text-clay'
-                                          }`}
-                                        >
-                                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
+                                  {actionsWidth !== '0px' &&
+                                    (splitActions ? (
+                                      // One button per line. `self-start` plus the same py-3 as the
+                                      // data grid means the two stay aligned even when a set adds
+                                      // bottom padding for its 1RM% label.
+                                      <div className="flex flex-shrink-0 flex-col items-center self-start py-3">
+                                        <div className="flex items-center" style={{ height: SET_INPUT_LINE_H }}>
+                                          {noteBtn}
+                                        </div>
+                                        <div className="mt-1 flex items-center" style={{ height: SET_LAST_LINE_H }}>
+                                          {completeBtn}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      // `py-1` only bites when the buttons are the tallest thing in
+                                      // the row, i.e. no "last time" line; without it they sit flush
+                                      // against the set dividers.
+                                      <div className="flex flex-shrink-0 flex-col items-center gap-1 py-1 sm:flex-row sm:gap-1.5 sm:py-0">
+                                        {noteBtn}
+                                        {deleteBtn}
+                                        {completeBtn}
+                                      </div>
+                                    ))}
                                   </div>
                                 </SwipeToDelete>
-                              ))}
+                                );
+                              })}
 
                               <div className="mt-2">
                                 <button className={dashedButtonClass} onClick={() => onAddSet(exerciseName)}>
