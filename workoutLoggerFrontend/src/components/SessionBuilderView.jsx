@@ -14,8 +14,10 @@ import { parseDuration, formatDuration, formatTimeInput, pace } from '../duratio
 const inputClass =
   'w-full rounded-lg border border-line-strong bg-surface px-3 py-2.5 text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
 
+// `min-w-0` matters: an <input>'s intrinsic min-width would otherwise keep its grid
+// track from shrinking, overflowing the set table on phones.
 const numInputClass =
-  'w-full rounded-lg border border-line-strong bg-surface px-2 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint';
+  'w-full min-w-0 rounded-lg border border-line-strong bg-surface px-1.5 py-2.5 text-center text-sm focus:border-clay focus:outline-none focus:ring-[3px] focus:ring-clay-tint sm:px-2';
 
 const dashedButtonClass =
   'w-full rounded-lg border border-dashed border-line-strong py-3 text-sm font-semibold text-clay hover:border-clay hover:bg-clay-tint';
@@ -217,7 +219,7 @@ export default function SessionBuilderView({
   const showNotes = notesOpen || !!note;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <div>
         {/* Header — title with an edit button that toggles inline editing */}
         <div className="flex items-start justify-between gap-4">
@@ -344,22 +346,31 @@ export default function SessionBuilderView({
                 // Data columns only — the action buttons (note/delete/complete) now live in a
                 // separate right-hand column outside the grid, so the "last time" row never
                 // leaves blank cells under them.
+                // `minmax(0, …)` rather than a bare `fr`: an auto min track would inherit the
+                // inputs' intrinsic width and refuse to shrink. On phones Reps/Kg get a bigger
+                // share than RPE/RIR, whose values are at most three characters.
                 const gridCols = [
-                  narrow ? '30px' : '34px',
-                  '1fr',
-                  '1fr',
-                  ...(colRpe ? [narrow ? '1fr' : '72px'] : []),
-                  ...(showThird ? [narrow ? '1fr' : '72px'] : []),
+                  narrow ? '26px' : '34px',
+                  narrow ? 'minmax(0, 1.15fr)' : 'minmax(0, 1fr)',
+                  narrow ? 'minmax(0, 1.15fr)' : 'minmax(0, 1fr)',
+                  ...(colRpe ? [narrow ? 'minmax(0, 0.85fr)' : '72px'] : []),
+                  ...(showThird ? [narrow ? 'minmax(0, 0.85fr)' : '72px'] : []),
                 ].join(' ');
                 // Right-hand action column width, so the header lines up with the set rows.
+                // On phones the buttons stack vertically into a single 32px column — the row is
+                // already tall enough for two of them, and that buys ~38px back for the inputs.
                 const actionCount = (colNotes ? 1 : 0) + (desktopDelete ? 1 : 0) + (onToggleComplete ? 1 : 0);
-                const actionsWidth = actionCount ? `${actionCount * 32 + (actionCount - 1) * 6}px` : '0px';
+                const actionsWidth = !actionCount
+                  ? '0px'
+                  : narrow
+                  ? '32px'
+                  : `${actionCount * 32 + (actionCount - 1) * 6}px`;
                 return (
                   <SortableRow key={exerciseName} id={exerciseName}>
                     {({ setNodeRef, style, handleProps, isDragging, isSorting }) => (
                       <div ref={setNodeRef} style={style}>
                         <AccentCard
-                          contentClassName="p-5"
+                          contentClassName="p-3 sm:p-5"
                           className={isDragging ? 'shadow-xl ring-2 ring-clay-tint' : ''}
                         >
                           <div className="mb-3 flex items-start justify-between gap-2">
@@ -481,10 +492,10 @@ export default function SessionBuilderView({
                           {!isSorting && (
                             <>
                               {/* Table header */}
-                              <div className="flex items-center gap-2 border-b border-line pb-2">
+                              <div className="flex items-center gap-1.5 border-b border-line pb-2 sm:gap-2">
                               <div
                                 style={{ gridTemplateColumns: gridCols }}
-                                className="grid min-w-0 flex-1 gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:gap-2"
+                                className="grid min-w-0 flex-1 gap-1 text-[11px] font-bold uppercase tracking-[0.06em] text-ink sm:gap-2"
                               >
                                 <span>Set</span>
                                 {timed ? (
@@ -528,14 +539,16 @@ export default function SessionBuilderView({
                                   onDelete={() => onDeleteSet(log)}
                                 >
                                   <div
-                                    className={`flex items-center gap-2 ${index > 0 ? 'border-t border-line' : ''} ${
-                                      log.completed ? 'rounded-md bg-clay-tint px-1 ring-1 ring-inset ring-clay-tintborder' : ''
+                                    className={`flex items-center gap-1.5 sm:gap-2 ${index > 0 ? 'border-t border-line' : ''} ${
+                                      // `-mx-1` cancels the padding so completing a set tints the
+                                      // row without narrowing the grid and nudging every input.
+                                      log.completed ? '-mx-1 rounded-md bg-clay-tint px-1 ring-1 ring-inset ring-clay-tintborder' : ''
                                     }`}
                                   >
                                   <div className="min-w-0 flex-1">
                                   <div
                                     style={{ gridTemplateColumns: gridCols }}
-                                    className={`grid items-center gap-1.5 py-3 sm:gap-2 ${
+                                    className={`grid items-center gap-1 py-3 sm:gap-2 ${
                                       anyPct ? 'pb-7' : ''
                                     }`}
                                   >
@@ -687,7 +700,7 @@ export default function SessionBuilderView({
                                     )}
                                     {showThird &&
                                       (isCardio ? (
-                                        <div className="grid place-items-center text-center text-sm text-muted">
+                                        <div className="min-w-0 truncate text-center text-sm text-muted">
                                           {pace(parseDuration(log.durationSeconds), log.distance) || '–'}
                                         </div>
                                       ) : (
@@ -715,14 +728,16 @@ export default function SessionBuilderView({
                                             : ls.reps != null && ls.reps !== ''
                                             ? String(ls.reps)
                                             : '';
+                                        // No unit suffix — the column header already reads Kg/Km,
+                                        // and " kg" is what pushed these boxes into an ellipsis.
                                         const c2 = timed
                                           ? null
                                           : isCardio
                                           ? ls.distance != null && ls.distance !== ''
-                                            ? `${ls.distance} km`
+                                            ? String(ls.distance)
                                             : ''
                                           : ls.weight != null && Number(ls.weight) > 0
-                                          ? `${ls.weight} kg`
+                                          ? String(ls.weight)
                                           : '';
                                         if (!c1 && !c2) return null;
                                         const boxClass =
@@ -734,7 +749,7 @@ export default function SessionBuilderView({
                                         return (
                                           <div
                                             style={{ gridColumn: '1 / -1', gridTemplateColumns: gridCols }}
-                                            className="mt-1 grid items-center gap-1.5 sm:gap-2"
+                                            className="mt-1 grid items-center gap-1 sm:gap-2"
                                             title="Last time"
                                           >
                                             <div className="flex justify-center text-muted" aria-label="Last time">
@@ -755,7 +770,7 @@ export default function SessionBuilderView({
                                   {colNotes && noteShown(log) && (
                                     <div
                                       style={{ gridTemplateColumns: gridCols }}
-                                      className="grid items-center gap-1.5 pb-3 sm:gap-2"
+                                      className="grid items-center gap-1 pb-3 sm:gap-2"
                                     >
                                       <div className="flex items-center justify-center text-muted" aria-hidden="true">
                                         {penGlyph}
@@ -774,7 +789,7 @@ export default function SessionBuilderView({
                                   )}
                                   </div>
                                   {actionsWidth !== '0px' && (
-                                    <div className="flex flex-shrink-0 items-center gap-1.5">
+                                    <div className="flex flex-shrink-0 flex-col items-center gap-1 sm:flex-row sm:gap-1.5">
                                       {colNotes && (
                                         <button
                                           type="button"
